@@ -3,7 +3,7 @@
 #include <sstream>
 #include <fstream>
 
-BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.0.3", 0)
+BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.1.1", 0)
 
 void PlayerCounter::onLoad()
 {
@@ -134,13 +134,21 @@ void PlayerCounter::LogError(std::string msg)
 
 void PlayerCounter::LoadData()
 {
-	std::ifstream in("player_counter.json");
+	// Upgrade old file path
+	if (std::filesystem::exists(this->mainFile)) {
+		Log("Upgrading old file path");
+		std::filesystem::create_directories(this->dataDir);
+		std::filesystem::rename(this->mainFile, this->mainPath);
+		std::filesystem::rename(this->bakFile, this->bakPath);
+	}
+
+	std::ifstream in(this->mainPath);
 	if (in.fail()) {
-		Log("Failed to open file");
-		Log(strerror(errno));
+		LogError("Failed to open file");
+		LogError(strerror(errno));
 		this->data["players"] = json::object();
 		WriteData();
-		in.open("player_counter.json");
+		in.open(this->mainPath);
 	}
 
 	try {
@@ -148,8 +156,8 @@ void PlayerCounter::LoadData()
 	}
 	catch (const nlohmann::detail::exception& e) {
 		in.close();
-		Log("Failed to parse json");
-		Log(e.what());
+		LogError("Failed to parse json");
+		LogError(e.what());
 	}
 
 	if (!this->data.contains("players")) {
@@ -166,20 +174,27 @@ void PlayerCounter::LoadData()
 
 void PlayerCounter::WriteData()
 {
-	std::ofstream out("player_counter.json.tmp");
+	std::filesystem::create_directories(this->dataDir);
+
+	std::ofstream out(this->tmpPath);
 	try {
 		out << this->data.dump(4, ' ', false, json::error_handler_t::replace) << std::endl;
 		out.close();
-		remove("player_counter.json.bak");
-		int err = rename("player_counter.json", "player_counter.json.bak");
-		if (err != 0) {
-			LogError("Could not backup player counter");
-			return;
+		std::error_code err;
+		std::filesystem::remove(this->bakPath, err);
+		if (std::filesystem::exists(this->mainPath)) {
+			std::filesystem::rename(this->mainPath, this->bakPath, err);
+			if (err.value() != 0) {
+				LogError("Could not backup player counter");
+				LogError(err.message());
+				return;
+			}
 		}
-		err = rename("player_counter.json.tmp", "player_counter.json");
-		if (err != 0) {
+		std::filesystem::rename(this->tmpPath, this->mainPath, err);
+		if (err.value() != 0) {
 			LogError("Could not move temp file to main");
-			err = rename("player_counter.json.bak", "player_counter.json");
+			LogError(err.message());
+			std::filesystem::rename(this->bakPath, this->mainPath, err);
 			return;
 		}
 	}
@@ -194,20 +209,15 @@ void PlayerCounter::WriteData()
 
 void PlayerCounter::HandlePlayerAdded(std::string eventName)
 {
-	this->gameWrapper->LogToChatbox(eventName);
 	if (!this->gameWrapper->IsInOnlineGame())
 		return;
 	ServerWrapper server = this->gameWrapper->GetOnlineGame();
 	if (server.GetGameTime() <= 0)
 		return;
-	//server.GetGameWinner().
 	MMRWrapper mw = this->gameWrapper->GetMMRWrapper();
 	ArrayWrapper<PriWrapper> pris = server.GetPRIs();
 	int i = 0;
 	int len = pris.Count();
-	Log("track teammates: " + std::to_string(*this->trackTeammates));
-	Log("track opponents: " + std::to_string(*this->trackOpponents));
-	Log("track group: " + std::to_string(*this->trackGrouped));
 
 	while (i < len)
 	{
@@ -223,30 +233,21 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 				bool isTeammate = player.GetTeamNum() == localPlayer.GetTeamNum();
 				unsigned long long myLeaderID = localPlayer.GetPartyLeader().ID;
 				bool isInMyGroup = myLeaderID != 0 && player.GetPartyLeader().ID == myLeaderID;
-				Log("player teamnum: " + std::to_string(player.GetTeamNum()));
-				Log("my teamnum: " + std::to_string(localPlayer.GetTeamNum()));
-				Log("isTeammate: " + std::string(isTeammate ? "true" : "false"));
-				Log("player leader: " + std::to_string(player.GetPartyLeader().ID));
-				Log("my leader: " + std::to_string(localPlayer.GetPartyLeader().ID));
-				Log("isGrouped: " + std::string(isInMyGroup ? "true" : "false"));
 
 				if (isTeammate && !*this->trackTeammates)
 				{
-					Log("skipping because teammate");
 					i++;
 					continue;
 				}
 
 				if (!isTeammate && !*this->trackOpponents)
 				{
-					Log("skipping because opponent");
 					i++;
 					continue;
 				}
 
 				if (isInMyGroup && !*this->trackGrouped)
 				{
-					Log("skipping because in my group");
 					i++;
 					continue;
 				}
@@ -265,7 +266,6 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 
 				if (std::find(this->currentMatchIDs.begin(), this->currentMatchIDs.end(), steamIDStr) != this->currentMatchIDs.end())
 				{
-					Log("Player ID already seen this match");
 					i++;
 					continue;
 				}
@@ -403,20 +403,13 @@ void PlayerCounter::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToS
 			return;
 		}
 
-		//Log("Finally synced!");
-		//gameWrapper->LogToChatbox("Finally Synced!");
-
-		//float mmrValue = this->mmrWrapper.GetPlayerMMR(steamID, playlist);
-		//Log(std::to_string(idToSet.ID));
 		json& player = this->data["players"][std::to_string(idToSet.ID)];
-		//Log(player.dump(2));
 		std::string keyToSet = (steamID.ID == idToSet.ID) ? "otherMetMMR" : "playerMetMMR";
 		if (!player.contains(keyToSet))
 		{
 			player[keyToSet] = json::object();
 		}
 		player[keyToSet][std::to_string(playlist)] = mmrValue;
-		//Log(player.dump(2));
 		WriteData();
 	}, 5);
 }

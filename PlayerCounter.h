@@ -1,8 +1,10 @@
 #pragma once
 #pragma comment(lib, "BakkesMod.lib")
+#define _HAS_STD_BYTE 0
 #include "bakkesmod\plugin\bakkesmodplugin.h"
 #include "json.hpp"
 #include <vector>
+#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -63,6 +65,15 @@ private:
 	std::vector<std::string> currentMatchIDs;
 	MMRWrapper mmrWrapper;
 	std::map<std::string, int> currentMatchMetCounts;
+
+	inline static auto mainFile = "player_counter.json";
+	inline static auto tmpFile  = "player_counter.json.tmp";
+	inline static auto bakFile  = "player_counter.json.bak";
+
+	inline static auto dataDir = std::filesystem::path("bakkesmod/data/dejavu");
+	inline static auto mainPath = std::filesystem::path(dataDir).append(mainFile);
+	inline static auto tmpPath = std::filesystem::path(dataDir).append(tmpFile);
+	inline static auto bakPath = std::filesystem::path(dataDir).append(bakFile);
 
 	void Log(std::string msg);
 	void LogError(std::string msg);
