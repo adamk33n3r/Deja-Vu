@@ -20,21 +20,17 @@ void PlayerCounter::onLoad()
 		HandlePlayerAdded("dejavu_track_current");
 	}, "Reloads the json data from file", PERMISSION_ONLINE);
 
-	this->enabled = std::make_shared<bool>(true);
-	this->cvarManager->registerCvar("cl_dejavu_enable", "1", "Enables plugin").bindTo(this->enabled);
+	RegisterCVar("cl_dejavu_enable", "Enables plugin", true, this->enabled);
 
-	this->trackOpponents = std::make_shared<bool>(true);
-	this->cvarManager->registerCvar("cl_dejavu_track_opponents", "1", "Enables tracking opponents").bindTo(this->trackOpponents);
-	this->trackTeammates = std::make_shared<bool>(true);
-	this->cvarManager->registerCvar("cl_dejavu_track_teammates", "1", "Enables tracking teammates").bindTo(this->trackTeammates);
-	this->trackGrouped = std::make_shared<bool>(true);
-	this->cvarManager->registerCvar("cl_dejavu_track_grouped", "1", "Track players if grouped").bindTo(this->trackGrouped);
+	RegisterCVar("cl_dejavu_track_opponents", "Track players if opponents", true, this->trackOpponents);
+	RegisterCVar("cl_dejavu_track_teammates", "Track players if teammates", true, this->trackTeammates);
+	RegisterCVar("cl_dejavu_track_grouped", "Track players if in party", true, this->trackGrouped);
 
-	this->enabledVisuals = std::make_shared<bool>(true);
-	this->cvarManager->registerCvar("cl_dejavu_visuals", "1", "Enables visuals").bindTo(this->enabledVisuals);
+	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
 
-	this->enabledDebug = std::make_shared<bool>(false);
-	auto debugCVar = this->cvarManager->registerCvar("cl_dejavu_debug", "0", "Enables debug view. Useful for choosing colors");
+	//auto debugCVar = this->cvarManager->registerCvar("cl_dejavu_debug", "0", "Enables debug view. Useful for choosing colors");
+	//debugCVar.bindTo(this->enabledDebug);
+	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
 
@@ -52,35 +48,23 @@ void PlayerCounter::onLoad()
 			this->currentMatchMetCounts["Player Name 3"] = 999;
 		}
 	});
-	debugCVar.bindTo(this->enabledDebug);
 
-	this->scale = std::make_shared<int>(1);
-	this->cvarManager->registerCvar("cl_dejavu_scale", "1", "Scale of visuals").bindTo(this->scale);
+	RegisterCVar("cl_dejavu_scale", "Scale of visuals", 1, this->scale);
 	
-	this->alpha = std::make_shared<float>(0.75f);
-	this->cvarManager->registerCvar("cl_dejavu_alpha", "0.75", "Alpha of display", true, true, 0.0f, true, 1.0f).bindTo(this->alpha);
+	RegisterCVar("cl_dejavu_alpha", "Alpha of display", 0.75f, this->alpha, true, true, 0.0f, true, 1.0f);
 	
-	this->xPos = std::make_shared<float>(0.0f);
-	this->cvarManager->registerCvar("cl_dejavu_xpos", "0.0", "X position of display", true, true, 0.0f, true, 1.0f).bindTo(this->xPos);
-	this->yPos = std::make_shared<float>(1.0f);
-	this->cvarManager->registerCvar("cl_dejavu_ypos", "1.0", "Y position of display", true, true, 0.0f, true, 1.0f).bindTo(this->yPos);
+	RegisterCVar("cl_dejavu_xpos", "X position of display", 0.0f, this->xPos, true, true, 0.0f, true, 1.0f);
+	RegisterCVar("cl_dejavu_ypos", "Y position of display", 1.0f, this->yPos, true, true, 0.0f, true, 1.0f);
 
-	this->textColorR = std::make_shared<int>(255);
-	this->cvarManager->registerCvar("cl_dejavu_text_color_r", "255", "Text color: Red").bindTo(this->textColorR);
-	this->textColorG = std::make_shared<int>(255);
-	this->cvarManager->registerCvar("cl_dejavu_text_color_g", "255", "Text color: Green").bindTo(this->textColorG);
-	this->textColorB = std::make_shared<int>(255);
-	this->cvarManager->registerCvar("cl_dejavu_text_color_b", "255", "Text color: Blue").bindTo(this->textColorB);
+	RegisterCVar("cl_dejavu_text_color_r", "Text color: Red", 255, this->textColorR);
+	RegisterCVar("cl_dejavu_text_color_g", "Text color: Green", 255, this->textColorG);
+	RegisterCVar("cl_dejavu_text_color_b", "Text color: Blue", 255, this->textColorB);
 
-	this->enabledBackground = std::make_shared<bool>(true);
-	this->cvarManager->registerCvar("cl_dejavu_background", "1", "Enables background").bindTo(this->enabledBackground);
+	RegisterCVar("cl_dejavu_background", "Enables background", true, this->enabledBackground);
 
-	this->backgroundColorR = std::make_shared<int>(0);
-	this->cvarManager->registerCvar("cl_dejavu_background_color_r", "0", "Background color: Red").bindTo(this->backgroundColorR);
-	this->backgroundColorG = std::make_shared<int>(0);
-	this->cvarManager->registerCvar("cl_dejavu_background_color_g", "0", "Background color: Green").bindTo(this->backgroundColorG);
-	this->backgroundColorB = std::make_shared<int>(0);
-	this->cvarManager->registerCvar("cl_dejavu_background_color_b", "0", "Background color: Blue").bindTo(this->backgroundColorB);
+	RegisterCVar("cl_dejavu_background_color_r", "Background color: Red", 0, this->backgroundColorR);
+	RegisterCVar("cl_dejavu_background_color_g", "Background color: Green", 0, this->backgroundColorG);
+	RegisterCVar("cl_dejavu_background_color_b", "Background color: Blue", 0, this->backgroundColorB);
 
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerAdded", std::bind(&PlayerCounter::HandlePlayerAdded, this, std::placeholders::_1));
 	//this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerRemoved", std::bind(&PlayerCounter::HandlePlayerRemoved, this, std::placeholders::_1));
@@ -212,8 +196,10 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 	if (!this->gameWrapper->IsInOnlineGame())
 		return;
 	ServerWrapper server = this->gameWrapper->GetOnlineGame();
-	if (server.GetGameTime() <= 0)
+	Log("Game time is: " + std::to_string(server.GetGameTime()));
+	if (server.GetGameTime() <= 0) {
 		return;
+	}
 	MMRWrapper mw = this->gameWrapper->GetMMRWrapper();
 	ArrayWrapper<PriWrapper> pris = server.GetPRIs();
 	int i = 0;
@@ -412,4 +398,35 @@ void PlayerCounter::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToS
 		player[keyToSet][std::to_string(playlist)] = mmrValue;
 		WriteData();
 	}, 5);
+}
+
+template <typename T>
+CVarWrapper PlayerCounter::RegisterCVar(
+	const char* name,
+	const char* description,
+	T defaultValue,
+	std::shared_ptr<T>& bindTo,
+	bool searchable,
+	bool hasMin,
+	float min,
+	float hasMax,
+	float max,
+	bool saveToCfg
+)
+{
+	bindTo = std::make_shared<T>(defaultValue);
+	CVarWrapper cvar = this->cvarManager->registerCvar(
+		name,
+		std::to_string(defaultValue),
+		description,
+		searchable,
+		hasMin,
+		min,
+		hasMax,
+		max,
+		saveToCfg
+	);
+	cvar.bindTo(bindTo);
+
+	return cvar;
 }

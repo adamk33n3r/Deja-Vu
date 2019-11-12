@@ -80,5 +80,18 @@ private:
 	void LoadData();
 	void WriteData();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
+	template <typename T>
+	CVarWrapper RegisterCVar(
+		const char* name,
+		const char* description,
+		T defaultValue,
+		std::shared_ptr<T>& bindTo,
+		bool searchable = true,
+		bool hasMin = false,
+		float min = 0,
+		float hasMax = false,
+		float max = 0,
+		bool saveToCfg = true
+	);
 
 };
