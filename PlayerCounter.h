@@ -50,6 +50,7 @@ private:
 	std::shared_ptr<float> alpha;
 	std::shared_ptr<float> xPos;
 	std::shared_ptr<float> yPos;
+	std::shared_ptr<float> width;
 
 	std::shared_ptr<int> textColorR;
 	std::shared_ptr<int> textColorG;
@@ -80,7 +81,8 @@ private:
 	void LoadData();
 	void WriteData();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
-	template <typename T>
+
+	template <class T>
 	CVarWrapper RegisterCVar(
 		const char* name,
 		const char* description,

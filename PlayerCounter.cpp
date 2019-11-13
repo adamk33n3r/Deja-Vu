@@ -3,7 +3,69 @@
 #include <sstream>
 #include <fstream>
 
-BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.1.1", 0)
+BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.1.2", 0)
+
+template <class T>
+CVarWrapper PlayerCounter::RegisterCVar(
+	const char* name,
+	const char* description,
+	T defaultValue,
+	std::shared_ptr<T>& bindTo,
+	bool searchable,
+	bool hasMin,
+	float min,
+	float hasMax,
+	float max,
+	bool saveToCfg
+)
+{
+	bindTo = std::make_shared<T>(defaultValue);
+	CVarWrapper cvar = this->cvarManager->registerCvar(
+		name,
+		std::to_string(defaultValue),
+		description,
+		searchable,
+		hasMin,
+		min,
+		hasMax,
+		max,
+		saveToCfg
+	);
+	cvar.bindTo(bindTo);
+
+	return cvar;
+}
+
+template <>
+CVarWrapper PlayerCounter::RegisterCVar(
+	const char* name,
+	const char* description,
+	std::string defaultValue,
+	std::shared_ptr<std::string>& bindTo,
+	bool searchable,
+	bool hasMin,
+	float min,
+	float hasMax,
+	float max,
+	bool saveToCfg
+)
+{
+	bindTo = std::make_shared<std::string>(defaultValue);
+	CVarWrapper cvar = this->cvarManager->registerCvar(
+		name,
+		defaultValue,
+		description,
+		searchable,
+		hasMin,
+		min,
+		hasMax,
+		max,
+		saveToCfg
+	);
+	cvar.bindTo(bindTo);
+
+	return cvar;
+}
 
 void PlayerCounter::onLoad()
 {
@@ -28,8 +90,6 @@ void PlayerCounter::onLoad()
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
 
-	//auto debugCVar = this->cvarManager->registerCvar("cl_dejavu_debug", "0", "Enables debug view. Useful for choosing colors");
-	//debugCVar.bindTo(this->enabledDebug);
 	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
@@ -55,6 +115,7 @@ void PlayerCounter::onLoad()
 	
 	RegisterCVar("cl_dejavu_xpos", "X position of display", 0.0f, this->xPos, true, true, 0.0f, true, 1.0f);
 	RegisterCVar("cl_dejavu_ypos", "Y position of display", 1.0f, this->yPos, true, true, 0.0f, true, 1.0f);
+	RegisterCVar("cl_dejavu_width", "Width of display", 0.0f, this->width, true, true, 0.0f, true, 1.0f);
 
 	RegisterCVar("cl_dejavu_text_color_r", "Text color: Red", 255, this->textColorR);
 	RegisterCVar("cl_dejavu_text_color_g", "Text color: Green", 255, this->textColorG);
@@ -338,9 +399,10 @@ char spacings[] = { 15, 30, 45, 60 };
 
 void PlayerCounter::RenderDrawable(CanvasWrapper canvas)
 {
+	bool inGame = this->gameWrapper->IsInOnlineGame();
+	bool mapEmpty = this->currentMatchMetCounts.size() == 0;
 	if (
-		!*this->enabledVisuals &&
-		(!*this->enabled || !*this->enabledDebug || !this->gameWrapper->IsInOnlineGame() || this->currentMatchMetCounts.size() == 0)
+		(!*this->enabled || !*this->enabledVisuals || !inGame || mapEmpty) && !*this->enabledDebug
 	)
 		return;
 
@@ -350,8 +412,11 @@ void PlayerCounter::RenderDrawable(CanvasWrapper canvas)
 
 	int spacing = spacings[(*this->scale)-1];
 
-	float width = 200 * *this->scale;
+	float minWidth = 200;
+	char currentCharWidth = charWidths[(*this->scale) - 1];
 	float height = this->currentMatchMetCounts.size() * spacing + padding.Y * 2;
+
+	float width = ((size.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
 
 	float maxX = size.X - width;
 	float maxY = size.Y - height;
@@ -369,11 +434,16 @@ void PlayerCounter::RenderDrawable(CanvasWrapper canvas)
 	for (auto const& val : this->currentMatchMetCounts)
 	{
 		std::string playerName = val.first;
+		auto widthOfNamePx = playerName.length() * currentCharWidth;
+		if (widthOfNamePx >= width) {
+			// truncate
+			playerName = playerName.substr(0, (width / currentCharWidth) - 4 - 3) + "...";
+		}
 		std::string metCount = std::to_string(val.second);
 
 		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
 		canvas.DrawString(playerName, *this->scale, *this->scale);
-		canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (charWidths[(*this->scale)-1] * (int)metCount.size()), yPos });
+		canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)metCount.size()), yPos });
 		canvas.DrawString(metCount, *this->scale, *this->scale);
 		yPos += spacing;
 	}
@@ -400,33 +470,4 @@ void PlayerCounter::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToS
 	}, 5);
 }
 
-template <typename T>
-CVarWrapper PlayerCounter::RegisterCVar(
-	const char* name,
-	const char* description,
-	T defaultValue,
-	std::shared_ptr<T>& bindTo,
-	bool searchable,
-	bool hasMin,
-	float min,
-	float hasMax,
-	float max,
-	bool saveToCfg
-)
-{
-	bindTo = std::make_shared<T>(defaultValue);
-	CVarWrapper cvar = this->cvarManager->registerCvar(
-		name,
-		std::to_string(defaultValue),
-		description,
-		searchable,
-		hasMin,
-		min,
-		hasMax,
-		max,
-		saveToCfg
-	);
-	cvar.bindTo(bindTo);
 
-	return cvar;
-}
