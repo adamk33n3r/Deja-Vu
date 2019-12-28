@@ -8,22 +8,54 @@
 
 using json = nlohmann::json;
 
-enum class Playlists {
+enum class Playlist
+{
 	Duel = 1,
 	Doubles = 2,
 	Standard = 3,
 	Chaos = 4,
-	Ranked_Duel = 10,
-	Ranked_Doubles = 11,
-	Ranked_Solo_Standard = 12,
-	Ranked_Standard = 13,
-	Mutator_Mashup = 14,
-	Snow_Day = 15,
-	Rocket_Labs = 16,
+	PrivateMatch = 6,
+	OfflineSeason = 7,
+	OfflineSplitscreen = 8,
+	Training = 9,
+	RankedDuel = 10,
+	RankedDoubles = 11,
+	RankedSoloStandard = 12,
+	RankedStandard = 13,
+	MutatorMashup = 14,
+	SnowDay = 15,
+	RocketLabs = 16,
 	Hoops = 17,
 	Rumble = 18,
+	Workshop = 19,
+	TrainingEditor = 20,
+	CustomTraining = 21,
+	Tournament = 22,
 	Dropshot = 23,
+	RankedHoops = 27,
+	RankedRumble = 28,
+	RankedDropshot = 29,
+	RankedSnowDay = 30
 };
+
+enum class Side {
+	Same,
+	Other,
+};
+
+struct Record {
+	int wins;
+	int losses;
+};
+
+void to_json(json& j, const Record& record) {
+	j = json{ {"wins", record.wins}, { "losses", record.losses } };
+}
+
+void from_json(const json& j, Record& record) {
+	j.at("wins").get_to(record.wins);
+	j.at("losses").get_to(record.losses);
+}
 
 class PlayerCounter : public BakkesMod::Plugin::BakkesModPlugin
 {
@@ -37,6 +69,8 @@ public:
 	void HandlePlayerRemoved(std::string eventName);
 	void HandleGameStart(std::string eventName);
 	void HandleGameEnd(std::string eventName);
+	void HandleGameLeave(std::string eventName);
+	void SetRecord();
 	void RenderDrawable(CanvasWrapper canvas);
 
 private:
@@ -61,11 +95,13 @@ private:
 	std::shared_ptr<int> backgroundColorR;
 	std::shared_ptr<int> backgroundColorG;
 	std::shared_ptr<int> backgroundColorB;
+	std::shared_ptr<bool> gameIsOver;
 
 	json data;
-	std::vector<std::string> currentMatchIDs;
 	MMRWrapper mmrWrapper;
+	std::vector<std::string> currentMatchIDs;
 	std::map<std::string, int> currentMatchMetCounts;
+	std::map<std::string, std::string> currentMatchIDToName;
 
 	inline static auto mainFile = "player_counter.json";
 	inline static auto tmpFile  = "player_counter.json.tmp";
@@ -81,6 +117,8 @@ private:
 	void LoadData();
 	void WriteData();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
+	Record GetRecord(SteamID steamID, int playlist, Side side);
+	Record GetRecord(std::string steamID, int playlist, Side side);
 
 	template <class T>
 	CVarWrapper RegisterCVar(
@@ -91,7 +129,7 @@ private:
 		bool searchable = true,
 		bool hasMin = false,
 		float min = 0,
-		float hasMax = false,
+		bool hasMax = false,
 		float max = 0,
 		bool saveToCfg = true
 	);
