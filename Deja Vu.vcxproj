@@ -90,9 +90,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="PlayerCounter.cpp" />
+    <ClCompile Include="vendor\easyloggingpp-9.96.7\src\easylogging++.cc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="json.hpp" />
+    <ClInclude Include="vendor\easyloggingpp-9.96.7\src\easylogging++.h" />
+    <ClInclude Include="vendor\json.hpp" />
     <ClInclude Include="PlayerCounter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -2,7 +2,7 @@
 #pragma comment(lib, "BakkesMod.lib")
 #define _HAS_STD_BYTE 0
 #include "bakkesmod\plugin\bakkesmodplugin.h"
-#include "json.hpp"
+#include "vendor\json.hpp"
 #include <vector>
 #include <filesystem>
 
@@ -48,6 +48,18 @@ struct Record {
 	int losses;
 };
 
+
+struct Rect {
+	int X, Y, Width, Height;
+};
+
+struct RenderData {
+	std::string id;
+	std::string name;
+	int metCount;
+	Record record;
+};
+
 void to_json(json& j, const Record& record) {
 	j = json{ {"wins", record.wins}, { "losses", record.losses } };
 }
@@ -70,7 +82,6 @@ public:
 	void HandleGameStart(std::string eventName);
 	void HandleGameEnd(std::string eventName);
 	void HandleGameLeave(std::string eventName);
-	void SetRecord();
 	void RenderDrawable(CanvasWrapper canvas);
 
 private:
@@ -95,30 +106,40 @@ private:
 	std::shared_ptr<int> backgroundColorR;
 	std::shared_ptr<int> backgroundColorG;
 	std::shared_ptr<int> backgroundColorB;
-	std::shared_ptr<bool> gameIsOver;
 
 	json data;
 	MMRWrapper mmrWrapper;
-	std::vector<std::string> currentMatchIDs;
-	std::map<std::string, int> currentMatchMetCounts;
-	std::map<std::string, std::string> currentMatchIDToName;
+	bool gameIsOver;
+
+	std::map<std::string, PriWrapper> currentMatchPRIs;
+	std::map<std::string, PriWrapper> currentMatchPRIsAll;
+	std::vector<RenderData> blueTeamRenderData;
+	std::vector<RenderData> orangeTeamRenderData;
 
 	inline static auto mainFile = "player_counter.json";
 	inline static auto tmpFile  = "player_counter.json.tmp";
 	inline static auto bakFile  = "player_counter.json.bak";
+	inline static auto logFile  = "dejavu.log";
 
 	inline static auto dataDir = std::filesystem::path("bakkesmod/data/dejavu");
 	inline static auto mainPath = std::filesystem::path(dataDir).append(mainFile);
 	inline static auto tmpPath = std::filesystem::path(dataDir).append(tmpFile);
 	inline static auto bakPath = std::filesystem::path(dataDir).append(bakFile);
+	inline static auto logPath = std::filesystem::path(dataDir).append(logFile);
 
 	void Log(std::string msg);
 	void LogError(std::string msg);
 	void LoadData();
 	void WriteData();
+	void Reset();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
 	Record GetRecord(SteamID steamID, int playlist, Side side);
 	Record GetRecord(std::string steamID, int playlist, Side side);
+	void SetRecord();
+	ServerWrapper GetCurrentServer();
+	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData);
+	void AddPlayerToRenderData(PriWrapper player);
+	void RemovePlayerFromRenderData(PriWrapper player);
 
 	template <class T>
 	CVarWrapper RegisterCVar(
