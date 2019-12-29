@@ -91,6 +91,7 @@ private:
 	std::shared_ptr<bool> trackGrouped;
 	std::shared_ptr<bool> enabledVisuals;
 	std::shared_ptr<bool> enabledDebug;
+	std::shared_ptr<bool> enabledLog;
 	std::shared_ptr<int> scale;
 	std::shared_ptr<float> alpha;
 	std::shared_ptr<float> xPos;
@@ -112,7 +113,7 @@ private:
 	bool gameIsOver;
 
 	std::map<std::string, PriWrapper> currentMatchPRIs;
-	std::map<std::string, PriWrapper> currentMatchPRIsAll;
+	std::map<std::string, PriWrapper> currentMatchPRIsMetList;
 	std::vector<RenderData> blueTeamRenderData;
 	std::vector<RenderData> orangeTeamRenderData;
 
