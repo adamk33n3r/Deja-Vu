@@ -81,6 +81,11 @@ void SetupLogger(std::string logPath, bool enabled)
 	el::Loggers::reconfigureLogger("default", defaultConf);
 }
 
+void PlayerCounter::HookAndLogEvent(std::string eventName)
+{
+	this->gameWrapper->HookEvent(eventName, std::bind(&PlayerCounter::LogChatbox, this, std::placeholders::_1));
+}
+
 void PlayerCounter::onLoad()
 {
 	// At end of match in unranked when people leave and get replaced by bots the event fires and for some reason IsInOnlineGame turns back on
@@ -97,8 +102,9 @@ void PlayerCounter::onLoad()
 	}, "Tracks current lobby", PERMISSION_ONLINE);
 
 	this->cvarManager->registerNotifier("dejavu_test", [this](const std::vector<std::string>& commands) {
-		auto record = GetRecord(SteamID{ 0 }, 0, Side::Other);
-		Log("wins/losses: " + std::to_string(record.wins) + "/" + std::to_string(record.losses));
+		this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
+			Log("test after 5");
+		}, 5);
 	}, "test", PERMISSION_ALL);
 
 	RegisterCVar("cl_dejavu_enable", "Enables plugin", true, this->enabled);
@@ -174,12 +180,42 @@ void PlayerCounter::onLoad()
 
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", std::bind(&PlayerCounter::HandleGameEnd, this, std::placeholders::_1));
 	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&PlayerCounter::HandleGameLeave, this, std::placeholders::_1));
-	//this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.ExitToMainMenu", std::bind(&PlayerCounter::Log, this, std::placeholders::_1));
-	//this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.Destroyed", std::bind(&PlayerCounter::Log, this, std::placeholders::_1));
 
 	this->gameWrapper->UnregisterDrawables();
 	this->gameWrapper->RegisterDrawable(bind(&PlayerCounter::RenderDrawable, this, std::placeholders::_1));
 
+	std::string eventsToLog[] = {
+		//"Function TAGame.GameEvent_Soccar_TA.EndGame",
+		//"Function TAGame.GameEvent_Soccar_TA.EndRound",
+		//"Function TAGame.GameEvent_Soccar_TA.EventMatchEnded",
+		//"Function TAGame.GameEvent_Soccar_TA.EventGameEnded",
+		//"Function TAGame.GameEvent_Soccar_TA.EventGameWinnerSet",
+		//"Function TAGame.GameEvent_Soccar_TA.EventMatchWinnerSet",
+		//"Function TAGame.GameEvent_Soccar_TA.HasWinner",
+		//"Function TAGame.GameEvent_Soccar_TA.EventEndGameCountDown",
+		//"Function TAGame.GameEvent_Soccar_TA.EventGameTimeUpdated",
+		//"Function TAGame.GameEvent_Soccar_TA.Finished.BeginState",
+		//"Function TAGame.GameEvent_Soccar_TA.Finished.OnFinished",
+		//"Function TAGame.GameEvent_Soccar_TA.FinishEvent",
+		//"Function TAGame.GameEvent_Soccar_TA.HasWinner",
+		//"Function TAGame.GameEvent_Soccar_TA.OnGameWinnerSet",
+		//"Function TAGame.GameEvent_Soccar_TA.SetMatchWinner",
+		//"Function TAGame.GameEvent_Soccar_TA.SubmitMatch",
+		//"Function TAGame.GameEvent_Soccar_TA.SubmitMatchComplete",
+		//"Function TAGame.GameEvent_Soccar_TA.WaitForEndRound",
+		//"Function TAGame.GameEvent_Soccar_TA.EventActiveRoundChanged",
+		//"Function TAGame.GameEvent_Soccar_TA.GetWinningTeam",
+		//"Function TAGame.GameEvent_TA.EventGameStateChanged",
+		//"Function TAGame.GameEvent_TA.Finished.EndState",
+		//"Function TAGame.GameEvent_TA.Finished.BeginState",
+		"Function TAGame.GameEvent_Soccar_TA.Destroyed",
+		//"Function TAGame.GameEvent_TA.IsFinished",
+	};
+
+	//for (std::string eventName : eventsToLog)
+	//{
+	//	HookAndLogEvent(eventName);
+	//}
 
 	/* 
 		Goal Scored event: "Function TAGame.Team_TA.EventScoreUpdated"
@@ -192,6 +228,9 @@ void PlayerCounter::onLoad()
 
 		Function TAGame.GameEvent_Soccar_TA.InitGame
 		Function TAGame.GameEvent_Soccar_TA.InitGame
+
+		Function TAGame.GameEvent_Soccar_TA.EventGameWinnerSet
+		Function TAGame.GameEvent_Soccar_TA.EventMatchWinnerSet
 	*/
 
 	LoadData();
@@ -215,6 +254,12 @@ void PlayerCounter::Log(std::string msg)
 void PlayerCounter::LogError(std::string msg)
 {
 	this->cvarManager->log("ERROR: " + msg);
+}
+
+void PlayerCounter::LogChatbox(std::string msg)
+{
+	this->gameWrapper->LogToChatbox(msg);
+	LOG(INFO) << msg;
 }
 
 void PlayerCounter::LoadData()
@@ -259,6 +304,7 @@ void PlayerCounter::LoadData()
 
 void PlayerCounter::WriteData()
 {
+	LOG(INFO) << "WriteData";
 	std::filesystem::create_directories(this->dataDir);
 
 	std::ofstream out(this->tmpPath);
@@ -310,16 +356,19 @@ ServerWrapper PlayerCounter::GetCurrentServer()
 
 void PlayerCounter::HandlePlayerAdded(std::string eventName)
 {
-	LOG(INFO) << "HandlePlayerAdded: " << eventName;
-	if (!this->gameWrapper->IsInOnlineGame())
+	if (!IsInRealGame())
 		return;
+	LOG(INFO) << "HandlePlayerAdded: " << eventName;
 	if (this->gameIsOver)
 		return;
 	ServerWrapper server = this->gameWrapper->GetOnlineGame();
+	LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
 	MMRWrapper mw = this->gameWrapper->GetMMRWrapper();
 	ArrayWrapper<PriWrapper> pris = server.GetPRIs();
 
 	int len = pris.Count();
+
+	bool needsSave = false;
 
 	for (int i = 0; i < len; i++)
 	{
@@ -352,6 +401,7 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 				}
 
 				SteamID steamID = player.GetUniqueId();
+				LOG(INFO) << "steamID: " << steamID.ID;
 				// Bots
 				if (steamID.ID == 0)
 				{
@@ -373,9 +423,9 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 				std::string playerName = player.GetPlayerName().ToString();
 				int curPlaylist = mw.GetCurrentPlaylist();
 
-				GetAndSetMetMMR(localSteamID, curPlaylist, steamID);
+				//GetAndSetMetMMR(localSteamID, curPlaylist, steamID);
 
-				GetAndSetMetMMR(steamID, curPlaylist, steamID);
+				//GetAndSetMetMMR(steamID, curPlaylist, steamID);
 
 				// Only do met count logic if we haven't yet
 				if (this->currentMatchPRIsMetList.count(steamIDStr) == 0)
@@ -388,8 +438,8 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 						this->data["players"][steamIDStr] = json({
 							{ "metCount", metCount },
 							{ "name", playerName },
-							{ "playerMetMMR", { { std::to_string(curPlaylist), -1 } } },
-							{ "otherMetMMR", { { std::to_string(curPlaylist), -1 } } },
+							//{ "playerMetMMR", { { std::to_string(curPlaylist), -1 } } },
+							//{ "otherMetMMR", { { std::to_string(curPlaylist), -1 } } },
 						});
 					} else
 					{
@@ -399,16 +449,24 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 						playerData["metCount"] = metCount;
 						playerData["name"] = playerName;
 					}
+					needsSave = true;
 				}
 				AddPlayerToRenderData(player);
 
 			}
+			else {
+				LOG(INFO) << "localPlayer is null";
+			}
 
+		}
+		else {
+			LOG(INFO) << "localPlayerController is null";
 		}
 
 	}
 
-	WriteData();
+	if (needsSave)
+		WriteData();
 
 }
 
@@ -424,12 +482,15 @@ void PlayerCounter::AddPlayerToRenderData(PriWrapper player)
 	unsigned char noTeamSet = -1;
 	if (myTeamNum == noTeamSet || theirTeamNum == noTeamSet)
 	{
+		LOG(INFO) << "No team set for " << player.GetPlayerName().ToString() << ", retrying in 5 seconds: " << (int)myTeamNum << ":" << (int)theirTeamNum;
 		// No team set. Try again in a couple seconds
 		this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
 			HandlePlayerAdded("NoTeamSetRetry");
-		}, 2);
+		}, 5);
 		return;
 	}
+	// Team set, so we all good
+	this->currentMatchPRIs.emplace(steamIDStr, player);
 
 	LOG(INFO) << "adding player: " << player.GetPlayerName().ToString();
 
@@ -437,7 +498,6 @@ void PlayerCounter::AddPlayerToRenderData(PriWrapper player)
 	bool sameTeam = theirTeamNum == myTeamNum;
 	Record record = GetRecord(steamIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
-	this->currentMatchPRIs.emplace(steamIDStr, player);
 	if (theirTeamNum == 0)
 		this->blueTeamRenderData.push_back({ steamIDStr, player.GetPlayerName().ToString(), metCount, record });
 	else
@@ -459,9 +519,9 @@ void PlayerCounter::RemovePlayerFromRenderData(PriWrapper player)
 
 void PlayerCounter::HandlePlayerRemoved(std::string eventName)
 {
-	LOG(INFO) << eventName;
-	if (!this->gameWrapper->IsInOnlineGame())
+	if (!IsInRealGame())
 		return;
+	LOG(INFO) << eventName;
 
 	auto server = GetCurrentServer();
 
@@ -527,7 +587,7 @@ char spacings[] = { 15, 30, 45, 60 };
 
 void PlayerCounter::RenderDrawable(CanvasWrapper canvas)
 {
-	bool inGame = this->gameWrapper->IsInOnlineGame();
+	bool inGame = IsInRealGame();
 	bool noData = this->blueTeamRenderData.size() == 0 && this->orangeTeamRenderData.size() == 0;
 	if (
 		(!*this->enabled || !*this->enabledVisuals || !inGame || noData) && !*this->enabledDebug
@@ -655,7 +715,7 @@ Record PlayerCounter::GetRecord(std::string steamID, int playlist, Side side)
 
 void PlayerCounter::SetRecord()
 {
-	if (!this->gameWrapper->IsInOnlineGame())
+	if (!IsInRealGame())
 		return;
 
 	auto server = this->gameWrapper->GetOnlineGame();
@@ -704,3 +764,7 @@ void PlayerCounter::SetRecord()
 	}
 }
 
+bool PlayerCounter::IsInRealGame()
+{
+	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay();
+}

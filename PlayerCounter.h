@@ -130,6 +130,7 @@ private:
 
 	void Log(std::string msg);
 	void LogError(std::string msg);
+	void LogChatbox(std::string msg);
 	void LoadData();
 	void WriteData();
 	void Reset();
@@ -141,6 +142,8 @@ private:
 	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData);
 	void AddPlayerToRenderData(PriWrapper player);
 	void RemovePlayerFromRenderData(PriWrapper player);
+	bool IsInRealGame();
+	void HookAndLogEvent(std::string eventName);
 
 	template <class T>
 	CVarWrapper RegisterCVar(
