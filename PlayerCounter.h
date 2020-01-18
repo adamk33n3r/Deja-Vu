@@ -92,6 +92,7 @@ private:
 	std::shared_ptr<bool> enabledVisuals;
 	std::shared_ptr<bool> enabledDebug;
 	std::shared_ptr<bool> enabledLog;
+	std::shared_ptr<bool> showMetCount;
 	std::shared_ptr<int> scale;
 	std::shared_ptr<float> alpha;
 	std::shared_ptr<float> xPos;

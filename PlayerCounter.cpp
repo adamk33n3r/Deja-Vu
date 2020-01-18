@@ -7,7 +7,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.2.1", 0)
+BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.3.0", 0)
 
 template <class T>
 CVarWrapper PlayerCounter::RegisterCVar(
@@ -112,6 +112,7 @@ void PlayerCounter::onLoad()
 	RegisterCVar("cl_dejavu_track_opponents", "Track players if opponents", true, this->trackOpponents);
 	RegisterCVar("cl_dejavu_track_teammates", "Track players if teammates", true, this->trackTeammates);
 	RegisterCVar("cl_dejavu_track_grouped", "Track players if in party", true, this->trackGrouped);
+	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of the record", false, this->showMetCount);
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
 
@@ -656,14 +657,18 @@ Rect PlayerCounter::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector
 		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
 		canvas.DrawString(playerName, *this->scale, *this->scale);
 
-		//canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)metCount.size()), yPos });
-		//canvas.DrawString(metCount, *this->scale, *this->scale);
+		if (*this->showMetCount) {
+			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)std::to_string(playerRenderData.metCount).size()), yPos });
+			canvas.DrawString(std::to_string(playerRenderData.metCount), *this->scale, *this->scale);
+		}
+		else {
+			Record record = playerRenderData.record;
 
-		Record record = playerRenderData.record;
+			std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
+			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)recordStr.size()), yPos });
+			canvas.DrawString(recordStr, *this->scale, *this->scale);
+		}
 
-		std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
-		canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)recordStr.size()), yPos });
-		canvas.DrawString(recordStr, *this->scale, *this->scale);
 		yPos += spacing;
 	}
 
