@@ -1,16 +1,24 @@
-#include "PlayerCounter.h"
+#include "DejaVu.h"
 #include <iomanip>
 #include <sstream>
 #include <fstream>
 
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 
+#define DEV 0
+
+/**
+ * TODO
+ * - Add option to show total record across all playlists
+ * - IMGUI stuff
+ */
+
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(PlayerCounter, "Deja Vu", "1.3.0", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.1", 0)
 
 template <class T>
-CVarWrapper PlayerCounter::RegisterCVar(
+CVarWrapper DejaVu::RegisterCVar(
 	const char* name,
 	const char* description,
 	T defaultValue,
@@ -41,7 +49,7 @@ CVarWrapper PlayerCounter::RegisterCVar(
 }
 
 template <>
-CVarWrapper PlayerCounter::RegisterCVar(
+CVarWrapper DejaVu::RegisterCVar(
 	const char* name,
 	const char* description,
 	std::string defaultValue,
@@ -81,12 +89,29 @@ void SetupLogger(std::string logPath, bool enabled)
 	el::Loggers::reconfigureLogger("default", defaultConf);
 }
 
-void PlayerCounter::HookAndLogEvent(std::string eventName)
+void DejaVu::HookAndLogEvent(std::string eventName)
 {
-	this->gameWrapper->HookEvent(eventName, std::bind(&PlayerCounter::LogChatbox, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent(eventName, std::bind(&DejaVu::LogChatbox, this, std::placeholders::_1));
 }
 
-void PlayerCounter::onLoad()
+void DejaVu::CleanUpJson()
+{
+	for (auto player : this->data["players"].items())
+	{
+		json::value_type playerData = player.value();
+		for (auto playlistData : playerData["playlistData"].items())
+		{
+			bool containsRecords = playlistData.value().contains("records");
+			bool recordsIsNull = containsRecords && playlistData.value()["records"].is_null();
+
+			if (!containsRecords || recordsIsNull)
+				this->data["players"][player.key()]["playlistData"].erase(playlistData.key());
+		}
+	}
+	WriteData();
+}
+
+void DejaVu::onLoad()
 {
 	// At end of match in unranked when people leave and get replaced by bots the event fires and for some reason IsInOnlineGame turns back on
 	// Check 1v1. Player added event didn't fire after joining last
@@ -106,6 +131,10 @@ void PlayerCounter::onLoad()
 			Log("test after 5");
 		}, 5);
 	}, "test", PERMISSION_ALL);
+
+	this->cvarManager->registerNotifier("dejavu_cleanup", [this](const std::vector<std::string>& commands) {
+		CleanUpJson();
+	}, "Cleans up the json", PERMISSION_ALL);
 
 	RegisterCVar("cl_dejavu_enable", "Enables plugin", true, this->enabled);
 
@@ -132,10 +161,10 @@ void PlayerCounter::onLoad()
 		if (val) {
 			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 } });
 			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 } });
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonnnngggg name", 999, { 999, 999 } });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonngggg name", 999, { 999, 999 } });
 			this->orangeTeamRenderData.push_back({ "0", "Orange Player 1", 5, { 5, 5 } });
 			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 } });
-			this->orangeTeamRenderData.push_back({ "0", "Orange Player 3", 999, { 999, 999 } });
+			//this->orangeTeamRenderData.push_back({ "0", "Orange Player 3", 999, { 999, 999 } });
 		}
 	});
 
@@ -165,27 +194,27 @@ void PlayerCounter::onLoad()
 	});
 
 	// I guess this doesn't fire for "you"
-	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerAdded", std::bind(&PlayerCounter::HandlePlayerAdded, this, std::placeholders::_1));
-	this->gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", std::bind(&PlayerCounter::HandlePlayerAdded, this, std::placeholders::_1));
-	this->gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", std::bind(&PlayerCounter::HandlePlayerAdded, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerAdded", std::bind(&DejaVu::HandlePlayerAdded, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", std::bind(&DejaVu::HandlePlayerAdded, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.Team_TA.EventScoreUpdated", std::bind(&DejaVu::HandlePlayerAdded, this, std::placeholders::_1));
 	// TODO: Look for event like "spawning" so that when you join an in progress match it will gather data
 
-	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerRemoved", std::bind(&PlayerCounter::HandlePlayerRemoved, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerRemoved", std::bind(&DejaVu::HandlePlayerRemoved, this, std::placeholders::_1));
 
 	// Don't think this one ever actually works
-	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame", bind(&PlayerCounter::HandleGameStart, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame", bind(&DejaVu::HandleGameStart, this, std::placeholders::_1));
 	// Fires when joining a game
-	this->gameWrapper->HookEvent("Function OnlineGameJoinGame_X.JoiningBase.IsJoiningGame", std::bind(&PlayerCounter::HandleGameStart, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function OnlineGameJoinGame_X.JoiningBase.IsJoiningGame", std::bind(&DejaVu::HandleGameStart, this, std::placeholders::_1));
 	// Fires when the match is first initialized
-	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.OnAllTeamsCreated", std::bind(&PlayerCounter::HandleGameStart, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.OnAllTeamsCreated", std::bind(&DejaVu::HandleGameStart, this, std::placeholders::_1));
 
-	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", std::bind(&PlayerCounter::HandleGameEnd, this, std::placeholders::_1));
-	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&PlayerCounter::HandleGameLeave, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", std::bind(&DejaVu::HandleGameEnd, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&DejaVu::HandleGameLeave, this, std::placeholders::_1));
 
 	this->gameWrapper->UnregisterDrawables();
-	this->gameWrapper->RegisterDrawable(bind(&PlayerCounter::RenderDrawable, this, std::placeholders::_1));
+	this->gameWrapper->RegisterDrawable(bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
 
-	std::string eventsToLog[] = {
+	//std::string eventsToLog[] = {
 		//"Function TAGame.GameEvent_Soccar_TA.EndGame",
 		//"Function TAGame.GameEvent_Soccar_TA.EndRound",
 		//"Function TAGame.GameEvent_Soccar_TA.EventMatchEnded",
@@ -209,9 +238,9 @@ void PlayerCounter::onLoad()
 		//"Function TAGame.GameEvent_TA.EventGameStateChanged",
 		//"Function TAGame.GameEvent_TA.Finished.EndState",
 		//"Function TAGame.GameEvent_TA.Finished.BeginState",
-		"Function TAGame.GameEvent_Soccar_TA.Destroyed",
+		//"Function TAGame.GameEvent_Soccar_TA.Destroyed",
 		//"Function TAGame.GameEvent_TA.IsFinished",
-	};
+	//};
 
 	//for (std::string eventName : eventsToLog)
 	//{
@@ -239,31 +268,44 @@ void PlayerCounter::onLoad()
 	this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
 		LOG(INFO) << "---DEJAVU LOADED---";
 	}, 5);
+
+#if DEV
+	this->cvarManager->executeCommand("exec tmp.cfg");
+#endif
 }
 
-void PlayerCounter::onUnload()
+void DejaVu::onUnload()
 {
 	LOG(INFO) << "---DEJAVU UNLOADED---";
 	WriteData();
+
+#if DEV
+	this->cvarManager->backupCfg("./bakkesmod/cfg/tmp.cfg");
+#endif
+
+#if ENABLE_GUI
+	if (this->isWindowOpen)
+		this->cvarManager->executeCommand("togglemenu " + GetMenuName());
+#endif
 }
 
-void PlayerCounter::Log(std::string msg)
+void DejaVu::Log(std::string msg)
 {
 	this->cvarManager->log(msg);
 }
 
-void PlayerCounter::LogError(std::string msg)
+void DejaVu::LogError(std::string msg)
 {
 	this->cvarManager->log("ERROR: " + msg);
 }
 
-void PlayerCounter::LogChatbox(std::string msg)
+void DejaVu::LogChatbox(std::string msg)
 {
 	this->gameWrapper->LogToChatbox(msg);
 	LOG(INFO) << msg;
 }
 
-void PlayerCounter::LoadData()
+void DejaVu::LoadData()
 {
 	// Upgrade old file path
 	if (std::filesystem::exists(this->mainFile)) {
@@ -303,7 +345,7 @@ void PlayerCounter::LoadData()
 }
 
 
-void PlayerCounter::WriteData()
+void DejaVu::WriteData()
 {
 	LOG(INFO) << "WriteData";
 	std::filesystem::create_directories(this->dataDir);
@@ -339,7 +381,7 @@ void PlayerCounter::WriteData()
 	}
 }
 
-ServerWrapper PlayerCounter::GetCurrentServer()
+ServerWrapper DejaVu::GetCurrentServer()
 {
 	if (this->gameWrapper->IsInReplay())
 		return this->gameWrapper->GetGameEventAsReplay();
@@ -355,7 +397,18 @@ ServerWrapper PlayerCounter::GetCurrentServer()
 		return NULL;
 }
 
-void PlayerCounter::HandlePlayerAdded(std::string eventName)
+PriWrapper DejaVu::GetLocalPlayerPRI()
+{
+	auto server = GetCurrentServer();
+	if (server.IsNull())
+		return NULL;
+	auto player = server.GetLocalPrimaryPlayer();
+	if (player.IsNull())
+		return NULL;
+	return player.GetPRI();
+}
+
+void DejaVu::HandlePlayerAdded(std::string eventName)
 {
 	if (!IsInRealGame())
 		return;
@@ -403,11 +456,6 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 
 				SteamID steamID = player.GetUniqueId();
 				LOG(INFO) << "steamID: " << steamID.ID;
-				// Bots
-				if (steamID.ID == 0)
-				{
-					continue;
-				}
 
 				std::string steamIDStr = std::to_string(steamID.ID);
 
@@ -422,6 +470,14 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 				}
 
 				std::string playerName = player.GetPlayerName().ToString();
+
+				// Bots
+				if (steamID.ID == 0)
+				{
+					//playerName = "[BOT]";
+					continue;
+				}
+
 				int curPlaylist = mw.GetCurrentPlaylist();
 
 				//GetAndSetMetMMR(localSteamID, curPlaylist, steamID);
@@ -471,9 +527,10 @@ void PlayerCounter::HandlePlayerAdded(std::string eventName)
 
 }
 
-void PlayerCounter::AddPlayerToRenderData(PriWrapper player)
+void DejaVu::AddPlayerToRenderData(PriWrapper player)
 {
-	std::string steamIDStr = std::to_string(player.GetUniqueId().ID);
+	auto steamID = player.GetUniqueId().ID;
+	std::string steamIDStr = std::to_string(steamID);
 	// If we've already added him to the list, return
 	if (this->currentMatchPRIs.count(steamIDStr) != 0)
 		return;
@@ -499,13 +556,14 @@ void PlayerCounter::AddPlayerToRenderData(PriWrapper player)
 	bool sameTeam = theirTeamNum == myTeamNum;
 	Record record = GetRecord(steamIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
+	std::string playerName = player.GetPlayerName().ToString();
 	if (theirTeamNum == 0)
-		this->blueTeamRenderData.push_back({ steamIDStr, player.GetPlayerName().ToString(), metCount, record });
+		this->blueTeamRenderData.push_back({ steamIDStr, playerName, metCount, record });
 	else
-		this->orangeTeamRenderData.push_back({ steamIDStr, player.GetPlayerName().ToString(), metCount, record });
+		this->orangeTeamRenderData.push_back({ steamIDStr, playerName, metCount, record });
 }
 
-void PlayerCounter::RemovePlayerFromRenderData(PriWrapper player)
+void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
 {
 	LOG(INFO) << "Removing player: " << player.GetPlayerName().ToString();
 	std::string steamID = std::to_string(player.GetUniqueId().ID);
@@ -518,7 +576,7 @@ void PlayerCounter::RemovePlayerFromRenderData(PriWrapper player)
 	}), this->orangeTeamRenderData.end());
 }
 
-void PlayerCounter::HandlePlayerRemoved(std::string eventName)
+void DejaVu::HandlePlayerRemoved(std::string eventName)
 {
 	if (!IsInRealGame())
 		return;
@@ -551,14 +609,14 @@ void PlayerCounter::HandlePlayerRemoved(std::string eventName)
 	}
 }
 
-void PlayerCounter::HandleGameStart(std::string eventName)
+void DejaVu::HandleGameStart(std::string eventName)
 {
 	LOG(INFO) << eventName;
 	Reset();
 	this->cvarManager->getCvar("cl_dejavu_debug").setValue(false);
 }
 
-void PlayerCounter::HandleGameEnd(std::string eventName)
+void DejaVu::HandleGameEnd(std::string eventName)
 {
 	LOG(INFO) << eventName;
 	SetRecord();
@@ -567,14 +625,14 @@ void PlayerCounter::HandleGameEnd(std::string eventName)
 	this->gameIsOver = true;
 }
 
-void PlayerCounter::HandleGameLeave(std::string eventName)
+void DejaVu::HandleGameLeave(std::string eventName)
 {
 	LOG(INFO) << eventName;
 	WriteData();
 	Reset();
 }
 
-void PlayerCounter::Reset()
+void DejaVu::Reset()
 {
 	this->gameIsOver = false;
 	this->currentMatchPRIs.clear();
@@ -583,99 +641,7 @@ void PlayerCounter::Reset()
 	this->orangeTeamRenderData.clear();
 }
 
-char charWidths[] = { 8, 16, 25, 32 };
-char spacings[] = { 15, 30, 45, 60 };
-
-void PlayerCounter::RenderDrawable(CanvasWrapper canvas)
-{
-	bool inGame = IsInRealGame();
-	bool noData = this->blueTeamRenderData.size() == 0 && this->orangeTeamRenderData.size() == 0;
-	if (
-		(!*this->enabled || !*this->enabledVisuals || !inGame || noData) && !*this->enabledDebug
-		)
-		return;
-	int spacing = spacings[(*this->scale)-1];
-
-	Vector2 size = canvas.GetSize();
-	Vector2 padding{ 5, 5 };
-
-	int yOffset = 3;
-
-	int blueSize = max(this->blueTeamRenderData.size(), 1);
-	int orangeSize = max(this->orangeTeamRenderData.size(), 1);
-
-	float totalHeight = (blueSize + orangeSize) * spacing + padding.Y * 4 + yOffset;
-
-	float minWidth = 200;
-	float height = blueSize * spacing + padding.Y * 2;
-
-	float width = ((size.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
-
-	float maxX = size.X - width;
-	float maxY = size.Y - totalHeight;
-
-	Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
-	RenderUI(canvas, rect, this->blueTeamRenderData);
-	rect.Y += rect.Height + yOffset;
-	height = orangeSize * spacing + padding.Y * 2;
-	rect.Height = height;
-	RenderUI(canvas, rect, this->orangeTeamRenderData);
-}
-
-Rect PlayerCounter::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData)
-{
-	float alphaVal = *this->alpha;
-	char currentCharWidth = charWidths[(*this->scale) - 1];
-	Vector2 padding{ 5, 5 };
-	int spacing = spacings[(*this->scale)-1];
-
-	if (*this->enabledBackground)
-	{
-		canvas.SetColor(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, 255 * alphaVal);
-		canvas.DrawRect(Vector2{ area.X, area.Y }, { area.X + area.Width, area.Y + area.Height });
-	}
-
-	int yPos = area.Y + padding.Y;
-	canvas.SetColor(*this->textColorR, *this->textColorG, *this->textColorB, 255 * alphaVal);
-
-	if (renderData.size() == 0)
-	{
-		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString("Waiting...", *this->scale, *this->scale);
-	}
-
-	for (auto const& playerRenderData : renderData)
-	{
-		std::string playerName = playerRenderData.name;
-		auto widthOfNamePx = playerName.length() * currentCharWidth;
-		if (widthOfNamePx >= area.Width) {
-			// truncate
-			playerName = playerName.substr(0, (area.Width / currentCharWidth) - 4 - 3) + "...";
-		}
-		if (playerRenderData.metCount > 1)
-			playerName += "*";
-		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString(playerName, *this->scale, *this->scale);
-
-		if (*this->showMetCount) {
-			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)std::to_string(playerRenderData.metCount).size()), yPos });
-			canvas.DrawString(std::to_string(playerRenderData.metCount), *this->scale, *this->scale);
-		}
-		else {
-			Record record = playerRenderData.record;
-
-			std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
-			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - (currentCharWidth * (int)recordStr.size()), yPos });
-			canvas.DrawString(recordStr, *this->scale, *this->scale);
-		}
-
-		yPos += spacing;
-	}
-
-	return area;
-}
-
-void PlayerCounter::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet)
+void DejaVu::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet)
 {
 	this->gameWrapper->SetTimeout([this, steamID, playlist, idToSet](GameWrapper* gameWrapper) {
 		float mmrValue = this->mmrWrapper.GetPlayerMMR(steamID, playlist);
@@ -697,12 +663,12 @@ void PlayerCounter::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToS
 	}, 5);
 }
 
-Record PlayerCounter::GetRecord(SteamID steamID, int playlist, Side side)
+Record DejaVu::GetRecord(SteamID steamID, int playlist, Side side)
 {
 	return GetRecord(std::to_string(steamID.ID), playlist, side);
 }
 
-Record PlayerCounter::GetRecord(std::string steamID, int playlist, Side side)
+Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
 {
 	std::string sideStr;
 	if (side == Side::Same)
@@ -712,13 +678,19 @@ Record PlayerCounter::GetRecord(std::string steamID, int playlist, Side side)
 	else
 		return { 0, 0 };
 
-	json recordJson = this->data["players"][steamID]["playlistData"][std::to_string(playlist)]["records"];
+	json playerData = this->data["players"][steamID];
+	if (!playerData.contains("playlistData"))
+		return { 0, 0 };
+	json data = playerData["playlistData"];
+	if (!data.contains(std::to_string(playlist)))
+		return { 0, 0 };
+	json recordJson = data[std::to_string(playlist)]["records"];
 	if (recordJson.contains(sideStr))
 		return recordJson[sideStr].get<Record>();
 	return { 0, 0 };
 }
 
-void PlayerCounter::SetRecord()
+void DejaVu::SetRecord()
 {
 	if (!IsInRealGame())
 		return;
@@ -769,7 +741,198 @@ void PlayerCounter::SetRecord()
 	}
 }
 
-bool PlayerCounter::IsInRealGame()
+bool DejaVu::IsInRealGame()
 {
 	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay();
 }
+
+char spacings[] = { 15, 30, 45, 60 };
+
+void DejaVu::RenderDrawable(CanvasWrapper canvas)
+{
+	//static bool haveSetContext = false;
+	////GCanvas->ctxSet;
+	//if (!haveSetContext)
+	//{
+	//	Canvas::SetContext(canvas);
+	//	haveSetContext = true;
+	//}
+	//Canvas::SetColor(Canvas::COLOR_WHITE);
+	//Vector2 pos{ 50, 30 };
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("This is a test string");
+
+	//Canvas::BeginTable({
+	//	{ Canvas::Alignment::RIGHT },
+	//	{ Canvas::Alignment::CENTER },
+	//	{ Canvas::Alignment::LEFT },
+	//});
+	//Canvas::Row({ "Right", "Center", "Left" });
+	//Canvas::Row({ "Adam", "5", "Red", "This is out of bounds so won't be shown" });
+	//Canvas::Row({ "Alex", "543" });
+	//Canvas::Row({ "A$gyif", "&%@", ",.|[]" });
+	//Canvas::Row({ "Long text to show auto sizing", "1", "Pretty neato" });
+	//Canvas::EndTable();
+	//return;
+
+	//int pad = 15;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("ABCDEFGHIJKLMNOPQRSTUVWXYZA");
+	//pos.Y += pad;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("Aabcdefghijklmnopqrstuvwxyz");
+	//pos.Y += pad;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("A`B1234567890-=");
+	//pos.Y += pad;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("A~!@#$%^&*()_+");
+	//pos.Y += pad;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("A[O[O]O\\O;O'O,O.O/O");
+	//pos.Y += pad;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("O{O}O|O:O\"O<O>O?O");
+	//pos.Y += pad;
+	//Canvas::SetPosition(pos);
+	//Canvas::DrawString("__ __()_(_)Aggggg");
+
+	bool inGame = IsInRealGame();
+	bool noData = this->blueTeamRenderData.size() == 0 && this->orangeTeamRenderData.size() == 0;
+	if (
+		(!*this->enabled || !*this->enabledVisuals || !inGame || noData) && !*this->enabledDebug
+		)
+		return;
+
+	int spacing = *this->scale * 15;
+
+	Vector2 size = canvas.GetSize();
+	Vector2 padding{ 5, 5 };
+
+	int yOffset = 3;
+
+	int blueSize = this->blueTeamRenderData.size();
+	int orangeSize = this->orangeTeamRenderData.size();
+
+	bool renderPlayerBlue = false;
+	bool renderPlayerOrange = false;
+	auto pri = GetLocalPlayerPRI();
+	if (!pri.IsNull())
+	{
+		auto isBlueTeam = pri.GetTeamNum() == 0;
+		if (isBlueTeam)
+		{
+			blueSize++;
+			orangeSize = max(orangeSize, 1);
+		}
+		else
+		{
+			orangeSize++;
+			blueSize = max(blueSize, 1);
+		}
+		renderPlayerBlue = isBlueTeam;
+		renderPlayerOrange = !isBlueTeam;
+	}
+
+	if (*this->enabledDebug)
+	{
+		renderPlayerOrange = true;
+		orangeSize++;
+	}
+
+
+
+	float totalHeight = (blueSize + orangeSize) * spacing + padding.Y * 4 + yOffset;
+
+	float minWidth = 200;
+	float height = blueSize * spacing + padding.Y * 2;
+
+	float width = ((size.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
+
+	float maxX = size.X - width;
+	float maxY = size.Y - totalHeight;
+
+	Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
+	RenderUI(canvas, rect, this->blueTeamRenderData, renderPlayerBlue);
+	rect.Y += rect.Height + yOffset;
+	height = orangeSize * spacing + padding.Y * 2;
+	rect.Height = height;
+	RenderUI(canvas, rect, this->orangeTeamRenderData, renderPlayerOrange);
+}
+
+Rect DejaVu::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer)
+{
+	float alphaVal = *this->alpha;
+	//char currentCharWidth = charWidths[(*this->scale) - 1];
+	Vector2 padding{ 5, 5 };
+	int spacing = *this->scale * 15;
+
+	if (*this->enabledBackground)
+	{
+		canvas.SetColor(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, 255 * alphaVal);
+		canvas.DrawRect(Vector2{ area.X, area.Y }, { area.X + area.Width, area.Y + area.Height });
+	}
+
+	int yPos = area.Y + padding.Y;
+	canvas.SetColor(*this->textColorR, *this->textColorG, *this->textColorB, 255 * alphaVal);
+
+	if (!renderPlayer && renderData.size() == 0)
+	{
+		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
+		canvas.DrawString("Waiting...", *this->scale, *this->scale);
+		return area;
+	}
+
+	if (renderPlayer) {
+		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
+		canvas.DrawString("You", *this->scale, *this->scale);
+		yPos += spacing;
+	}
+
+	for (auto const& playerRenderData : renderData)
+	{
+		std::string playerName = playerRenderData.name;
+		//auto widthOfNamePx = playerName.length() * currentCharWidth;
+		auto widthOfNamePx = Canvas::GetStringWidth(playerName) * (*this->scale);
+		Record record = playerRenderData.record;
+		int recordWidth = Canvas::GetStringWidth(
+			*this->showMetCount ?
+			std::to_string(playerRenderData.metCount) :
+			std::to_string(record.wins) + ":" + std::to_string(record.losses)
+		);
+		int remainingPixels = area.Width - (padding.X * 2) - (*this->scale * (recordWidth + Canvas::GetCharWidth('*') + (Canvas::GetCharWidth('.') * 3)));
+		if (widthOfNamePx >= remainingPixels) {
+			// truncate
+			int characters = 0;
+			int pixels = 0;
+			for (char ch : playerName)
+			{
+				int width = *this->scale * Canvas::GetCharWidth(ch);
+				if ((pixels + width) > remainingPixels)
+					break;
+				pixels += width;
+				characters++;
+			}
+			playerName = playerName.substr(0, characters) + "...";
+		}
+		if (playerRenderData.metCount > 1)
+			playerName += "*";
+		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
+		canvas.DrawString(playerName, *this->scale, *this->scale);
+
+		if (*this->showMetCount) {
+			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(std::to_string(playerRenderData.metCount)), yPos });
+			canvas.DrawString(std::to_string(playerRenderData.metCount), *this->scale, *this->scale);
+		}
+		else {
+			std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
+			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(recordStr), yPos });
+			canvas.DrawString(recordStr, *this->scale, *this->scale);
+		}
+
+		yPos += spacing;
+	}
+
+	return area;
+}
+

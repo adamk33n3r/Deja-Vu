@@ -1,10 +1,19 @@
 #pragma once
 #pragma comment(lib, "BakkesMod.lib")
+
+#define ENABLE_GUI 0
+
 #define _HAS_STD_BYTE 0
-#include "bakkesmod\plugin\bakkesmodplugin.h"
-#include "vendor\json.hpp"
+#include "bakkesmod/plugin/bakkesmodplugin.h"
 #include <vector>
 #include <filesystem>
+#if ENABLE_GUI
+#include "bakkesmod/plugin/pluginwindow.h"
+#include "vendor/imgui/imgui.h"
+#endif
+#include "vendor/json.hpp"
+#include "Canvas.h"
+
 
 using json = nlohmann::json;
 
@@ -38,6 +47,11 @@ enum class Playlist
 	RankedSnowDay = 30
 };
 
+struct PlaylistFilter {
+	std::string name;
+	int playlistID;
+};
+
 enum class Side {
 	Same,
 	Other,
@@ -60,19 +74,22 @@ struct RenderData {
 	Record record;
 };
 
-void to_json(json& j, const Record& record) {
+inline void to_json(json& j, const Record& record) {
 	j = json{ {"wins", record.wins}, { "losses", record.losses } };
 }
 
-void from_json(const json& j, Record& record) {
+inline void from_json(const json& j, Record& record) {
 	j.at("wins").get_to(record.wins);
 	j.at("losses").get_to(record.losses);
 }
 
-class PlayerCounter : public BakkesMod::Plugin::BakkesModPlugin
+class DejaVu : public BakkesMod::Plugin::BakkesModPlugin
+#if ENABLE_GUI
+, public BakkesMod::Plugin::PluginWindow
+#endif
 {
 public:
-	PlayerCounter() : mmrWrapper(MMRWrapper(0)) {}
+	DejaVu() : mmrWrapper(MMRWrapper(NULL)) {}
 
 	virtual void onLoad() override;
 	virtual void onUnload() override;
@@ -83,6 +100,26 @@ public:
 	void HandleGameEnd(std::string eventName);
 	void HandleGameLeave(std::string eventName);
 	void RenderDrawable(CanvasWrapper canvas);
+
+// GUI
+
+#if ENABLE_GUI
+	void Render() override;
+	std::string GetMenuName() override;
+	std::string GetMenuTitle() override;
+	void SetImGuiContext(uintptr_t ctx) override;
+	bool ShouldBlockInput() override;
+	bool IsActiveOverlay() override;
+	void OnOpen() override;
+	void OnClose() override;
+#endif
+
+private:
+	bool isWindowOpen = false;
+	bool shouldBlockInput = false;
+	std::string menuTitle = "Deja Vu";
+	const char* playlists[2] = {"option 1", "option 2"};
+	bool selected1 = false;
 
 private:
 	std::shared_ptr<bool> enabled;
@@ -111,7 +148,7 @@ private:
 
 	json data;
 	MMRWrapper mmrWrapper;
-	bool gameIsOver;
+	bool gameIsOver = false;
 
 	std::map<std::string, PriWrapper> currentMatchPRIs;
 	std::map<std::string, PriWrapper> currentMatchPRIsMetList;
@@ -139,12 +176,16 @@ private:
 	Record GetRecord(SteamID steamID, int playlist, Side side);
 	Record GetRecord(std::string steamID, int playlist, Side side);
 	void SetRecord();
-	ServerWrapper GetCurrentServer();
-	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData);
+	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer);
 	void AddPlayerToRenderData(PriWrapper player);
 	void RemovePlayerFromRenderData(PriWrapper player);
 	bool IsInRealGame();
 	void HookAndLogEvent(std::string eventName);
+
+	ServerWrapper GetCurrentServer();
+	PriWrapper GetLocalPlayerPRI();
+
+	void CleanUpJson();
 
 	template <class T>
 	CVarWrapper RegisterCVar(

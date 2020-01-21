@@ -89,13 +89,35 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="PlayerCounter.cpp" />
+    <ClCompile Include="Canvas.cpp" />
+    <ClCompile Include="DejaVuGUI.cpp" />
+    <ClCompile Include="DejaVu.cpp" />
     <ClCompile Include="vendor\easyloggingpp-9.96.7\src\easylogging++.cc" />
+    <ClCompile Include="vendor\imgui\imgui.cpp" />
+    <ClCompile Include="vendor\imgui\imguivariouscontrols.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_additions.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_draw.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_impl_dx9.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_rangeslider.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_tabs.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Canvas.h" />
     <ClInclude Include="vendor\easyloggingpp-9.96.7\src\easylogging++.h" />
+    <ClInclude Include="vendor\imgui\CustomImguiModifications.h" />
+    <ClInclude Include="vendor\imgui\imconfig.h" />
+    <ClInclude Include="vendor\imgui\imgui.h" />
+    <ClInclude Include="vendor\imgui\imguivariouscontrols.h" />
+    <ClInclude Include="vendor\imgui\imgui_additions.h" />
+    <ClInclude Include="vendor\imgui\imgui_impl_dx9.h" />
+    <ClInclude Include="vendor\imgui\imgui_internal.h" />
+    <ClInclude Include="vendor\imgui\imgui_rangeslider.h" />
+    <ClInclude Include="vendor\imgui\imgui_tabs.h" />
+    <ClInclude Include="vendor\imgui\stb_rect_pack.h" />
+    <ClInclude Include="vendor\imgui\stb_textedit.h" />
+    <ClInclude Include="vendor\imgui\stb_truetype.h" />
     <ClInclude Include="vendor\json.hpp" />
-    <ClInclude Include="PlayerCounter.h" />
+    <ClInclude Include="DejaVu.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
