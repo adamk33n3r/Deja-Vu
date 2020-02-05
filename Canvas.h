@@ -2,37 +2,87 @@
 #include <bakkesmod\wrappers\canvaswrapper.h>
 #include <vector>
 #include <string>
+#include <optional>
 
 // Macro from wingdi.h
 #undef GetCharWidth
 
-#define MAKE_COLOR(r, g, b) (r << 24) | (g << 16) | (b << 8)
-
 namespace Canvas {
-	enum Color : unsigned int {
-		COLOR_WHITE = MAKE_COLOR(255, 255, 255),
-		COLOR_BLACK = MAKE_COLOR(0, 0, 0),
-		COLOR_RED = MAKE_COLOR(255, 0, 0),
-		COLOR_GREEN = MAKE_COLOR(0, 255, 0),
-		COLOR_BLUE = MAKE_COLOR(0, 0, 255),
+	struct Color {
+		char red, green, blue, alpha;
+		Color(char red, char green, char blue)
+			: red(red), green(green), blue(blue), alpha(255) {}
+		Color(char red, char green, char blue, char alpha)
+			: red(red), green(green), blue(blue), alpha(alpha) {}
+		const static Color White;
+		const static Color Black;
+		const static Color Red;
+		const static Color Green;
+		const static Color Blue;
 	};
 
+	struct Rect {
+		int X, Y, Width, Height;
+	};
+
+	struct Bounds {
+		int Left, Right, Top, Bottom;
+	};
+
+	//enum Color : unsigned int {
+	//	COLOR_WHITE = MAKE_COLOR(255, 255, 255),
+	//	COLOR_BLACK = MAKE_COLOR(0, 0, 0),
+	//	COLOR_RED = MAKE_COLOR(255, 0, 0),
+	//	COLOR_GREEN = MAKE_COLOR(0, 255, 0),
+	//	COLOR_BLUE = MAKE_COLOR(0, 0, 255),
+	//};
+
 	enum class Alignment {
-		LEFT = -1,
-		CENTER = 0,
-		RIGHT = 1,
+		DEFAULT,
+		LEFT,
+		CENTER,
+		RIGHT,
+	};
+
+	enum class TableBorder {
+		NONE,
+		INNER,
+		OUTER,
+		ALL,
+	};
+
+	struct CanvasBorderOptions {
+		Color borderColor = Color::White;
+		TableBorder borders = TableBorder::NONE;
 	};
 
 	struct CanvasTableOptions {
-		Alignment alignment = Alignment::LEFT;
+		Color bgColor = Color::Black;
+		Color fgColor = Color::White;
+		std::optional<int> width;
+		CanvasBorderOptions borderOptions;
+		Bounds padding{ 1, 1, 1, 1 };
+	};
+
+	struct CanvasColumnOptions {
+		Alignment alignment = Alignment::RIGHT;
+		int minWidth = 10;
+		std::optional<int> maxWidth;
+	};
+
+	struct CanvasCellOptions {
+		std::string text;
+		std::optional<Color> textColor;
+		std::optional<Alignment> alignment;
 	};
 
 	struct CanvasTableContext {
 		int totalCols = 0;
 		//int currentColumn = 0;
 		int padding = 5;
-		std::vector<std::vector<std::string>> rows;
-		std::vector<CanvasTableOptions> columnOptions;
+		CanvasTableOptions tableOptions;
+		std::vector<std::vector<CanvasCellOptions>> rows;
+		std::vector<CanvasColumnOptions> columnOptions;
 	};
 
 	struct CanvasContext {
@@ -42,6 +92,7 @@ namespace Canvas {
 		unsigned int characterHeight = 14 /* top padding */ + 2;
 		unsigned int scale = 1;
 		CanvasTableContext tableContext;
+		char alpha = 255;
 
 		CanvasContext() : canvas(NULL) {
 			ctxSet = false;
@@ -185,10 +236,16 @@ namespace Canvas {
 	// Helpers
 	void SetColor(Color color);
 	void SetColor(Color color, char alpha);
-	void SetScale(unsigned int scale);
-	void BeginTable(std::initializer_list<CanvasTableOptions> columns);
-	void Row(const std::vector<std::string>& rowData);
-	void EndTable();
+	void SetColor(char red, char green, char blue);
+	void SetPosition(int x, int y);
+	void SetPosition(float x, float y);
+	void BeginAlpha(unsigned char alpha);
+	void EndAlpha();
+	//void BeginScale(float scale);
+	//void EndScale();
+	void BeginTable(std::initializer_list<CanvasColumnOptions> columns, CanvasTableOptions options = {});
+	void Row(const std::initializer_list<CanvasCellOptions>& rowData);
+	Rect EndTable();
 
 }
 

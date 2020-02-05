@@ -5,12 +5,13 @@
 
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 
-#define DEV 0
+#define DEV 1
 
 /**
  * TODO
  * - Add option to show total record across all playlists
  * - IMGUI stuff
+ * - Don't show * if youre showing the met count
  */
 
 INITIALIZE_EASYLOGGINGPP
@@ -141,7 +142,7 @@ void DejaVu::onLoad()
 	RegisterCVar("cl_dejavu_track_opponents", "Track players if opponents", true, this->trackOpponents);
 	RegisterCVar("cl_dejavu_track_teammates", "Track players if teammates", true, this->trackTeammates);
 	RegisterCVar("cl_dejavu_track_grouped", "Track players if in party", true, this->trackGrouped);
-	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of the record", false, this->showMetCount);
+	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of your record", true, this->showMetCount);
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
 
@@ -537,8 +538,8 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 	auto server = GetCurrentServer();
 	auto myTeamNum = server.GetLocalPrimaryPlayer().GetPRI().GetTeamNum();
 	auto theirTeamNum = player.GetTeamNum();
-	unsigned char noTeamSet = -1;
-	if (myTeamNum == noTeamSet || theirTeamNum == noTeamSet)
+	unsigned char spectating = -1;
+	if (myTeamNum == spectating || theirTeamNum == spectating)
 	{
 		LOG(INFO) << "No team set for " << player.GetPlayerName().ToString() << ", retrying in 5 seconds: " << (int)myTeamNum << ":" << (int)theirTeamNum;
 		// No team set. Try again in a couple seconds
@@ -750,30 +751,32 @@ char spacings[] = { 15, 30, 45, 60 };
 
 void DejaVu::RenderDrawable(CanvasWrapper canvas)
 {
-	//static bool haveSetContext = false;
-	////GCanvas->ctxSet;
-	//if (!haveSetContext)
-	//{
-	//	Canvas::SetContext(canvas);
-	//	haveSetContext = true;
-	//}
-	//Canvas::SetColor(Canvas::COLOR_WHITE);
-	//Vector2 pos{ 50, 30 };
-	//Canvas::SetPosition(pos);
-	//Canvas::DrawString("This is a test string");
+	static bool haveSetContext = false;
+	if (!haveSetContext)
+	{
+		Canvas::SetContext(canvas);
+		haveSetContext = true;
+	}
 
+	Canvas::CanvasTableOptions tableOptions;
+	tableOptions.bgColor = Canvas::Color(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB);
+	tableOptions.fgColor = Canvas::Color(*this->textColorR, *this->textColorG, *this->textColorB);
+	tableOptions.borderOptions.borderColor = tableOptions.fgColor;
+	tableOptions.borderOptions.borders = Canvas::TableBorder::ALL;
+	//Canvas::SetPosition(Vector2{ 50, 50 });
 	//Canvas::BeginTable({
 	//	{ Canvas::Alignment::RIGHT },
 	//	{ Canvas::Alignment::CENTER },
 	//	{ Canvas::Alignment::LEFT },
-	//});
+	//	//{ Canvas::Alignment::LEFT },
+	//}, tableOptions);
 	//Canvas::Row({ "Right", "Center", "Left" });
 	//Canvas::Row({ "Adam", "5", "Red", "This is out of bounds so won't be shown" });
+	//Canvas::Row({ "Alex", "12345678" });
+	//Canvas::Row({ "A$gyifdd", "&%@", ",.|[]" });
+	//Canvas::Row({ "Long text to show auto sizing", "one", "Pretty neatoooo" });
 	//Canvas::Row({ "Alex", "543" });
-	//Canvas::Row({ "A$gyif", "&%@", ",.|[]" });
-	//Canvas::Row({ "Long text to show auto sizing", "1", "Pretty neato" });
 	//Canvas::EndTable();
-	//return;
 
 	//int pad = 15;
 	//Canvas::SetPosition(pos);
@@ -852,87 +855,162 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	float maxX = size.X - width;
 	float maxY = size.Y - totalHeight;
 
-	Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
-	RenderUI(canvas, rect, this->blueTeamRenderData, renderPlayerBlue);
+	Canvas::Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
+	rect = RenderUI(rect, this->blueTeamRenderData, renderPlayerBlue, false);
 	rect.Y += rect.Height + yOffset;
 	height = orangeSize * spacing + padding.Y * 2;
 	rect.Height = height;
-	RenderUI(canvas, rect, this->orangeTeamRenderData, renderPlayerOrange);
+	RenderUI(rect, this->orangeTeamRenderData, renderPlayerOrange, false);
+
+	// Keeps track of the biggest table width since we don't know the width until after render
+	static int maxWidthTable = 200;
+	Canvas::Rect rect2{(*this->xPos * maxX) + 210, (*this->yPos * maxY), maxWidthTable, height};
+	rect2 = RenderUI(rect2, this->blueTeamRenderData, renderPlayerBlue, true);
+	int biggestTableWidth = rect2.Width;
+	rect2.Y += rect.Height + yOffset;
+	rect2 = RenderUI(rect2, this->orangeTeamRenderData, renderPlayerOrange, true);
+	if (rect2.Width > biggestTableWidth)
+		biggestTableWidth = rect2.Width;
+	maxWidthTable = biggestTableWidth;
 }
 
-Rect DejaVu::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer)
+Canvas::Rect DejaVu::RenderUI(Canvas::Rect area, const std::vector<RenderData>& renderData, bool renderPlayer, bool newCanvas)
 {
-	float alphaVal = *this->alpha;
+	char alphaVal = *this->alpha * 255;
 	//char currentCharWidth = charWidths[(*this->scale) - 1];
 	Vector2 padding{ 5, 5 };
 	int spacing = *this->scale * 15;
 
-	if (*this->enabledBackground)
+	if (!newCanvas)
 	{
-		canvas.SetColor(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, 255 * alphaVal);
-		canvas.DrawRect(Vector2{ area.X, area.Y }, { area.X + area.Width, area.Y + area.Height });
-	}
 
-	int yPos = area.Y + padding.Y;
-	canvas.SetColor(*this->textColorR, *this->textColorG, *this->textColorB, 255 * alphaVal);
+		if (*this->enabledBackground)
+		{
+			Canvas::SetColor(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, alphaVal);
+			Canvas::DrawRect(Vector2{ area.X, area.Y }, { area.X + area.Width, area.Y + area.Height });
+		}
 
-	if (!renderPlayer && renderData.size() == 0)
-	{
-		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString("Waiting...", *this->scale, *this->scale);
+		int yPos = area.Y + padding.Y;
+		Canvas::SetColor(*this->textColorR, *this->textColorG, *this->textColorB, alphaVal);
+
+		if (!renderPlayer && renderData.size() == 0)
+		{
+			Canvas::SetPosition(Vector2{ area.X + padding.X, yPos });
+			Canvas::DrawString("Waiting...", *this->scale, *this->scale);
+			return area;
+		}
+
+		if (renderPlayer) {
+			Canvas::SetPosition(Vector2{ area.X + padding.X, yPos });
+			Canvas::DrawString("You", *this->scale, *this->scale);
+			yPos += spacing;
+		}
+
+		for (auto const& playerRenderData : renderData)
+		{
+			std::string playerName = playerRenderData.name;
+			//auto widthOfNamePx = playerName.length() * currentCharWidth;
+			auto widthOfNamePx = Canvas::GetStringWidth(playerName) * (*this->scale);
+			Record record = playerRenderData.record;
+			int recordWidth = Canvas::GetStringWidth(
+				*this->showMetCount ?
+				std::to_string(playerRenderData.metCount) :
+				std::to_string(record.wins) + ":" + std::to_string(record.losses)
+			);
+			int remainingPixels = area.Width - (padding.X * 2) - (*this->scale * (recordWidth + Canvas::GetCharWidth('*') + (Canvas::GetCharWidth('.') * 3)));
+			if (widthOfNamePx >= remainingPixels) {
+				// truncate
+				int characters = 0;
+				int pixels = 0;
+				for (char ch : playerName)
+				{
+					int width = *this->scale * Canvas::GetCharWidth(ch);
+					if ((pixels + width) > remainingPixels)
+						break;
+					pixels += width;
+					characters++;
+				}
+				playerName = playerName.substr(0, characters) + "...";
+			}
+			// Append * when we are showing the record, the record is 0:0, and we have met them before
+			if (!*this->showMetCount && playerRenderData.metCount > 1 && (record.wins == 0 && record.losses == 0))
+				playerName += "*";
+			Canvas::SetPosition(Vector2{ area.X + padding.X, yPos });
+			Canvas::DrawString(playerName, *this->scale, *this->scale);
+
+			if (*this->showMetCount) {
+				Canvas::SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(std::to_string(playerRenderData.metCount)), yPos });
+				Canvas::DrawString(std::to_string(playerRenderData.metCount), *this->scale, *this->scale);
+			}
+			else {
+				std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
+				Canvas::SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(recordStr), yPos });
+				Canvas::DrawString(recordStr, *this->scale, *this->scale);
+			}
+
+			yPos += spacing;
+		}
 		return area;
 	}
-
-	if (renderPlayer) {
-		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString("You", *this->scale, *this->scale);
-		yPos += spacing;
-	}
-
-	for (auto const& playerRenderData : renderData)
+	else
 	{
-		std::string playerName = playerRenderData.name;
-		//auto widthOfNamePx = playerName.length() * currentCharWidth;
-		auto widthOfNamePx = Canvas::GetStringWidth(playerName) * (*this->scale);
-		Record record = playerRenderData.record;
-		int recordWidth = Canvas::GetStringWidth(
-			*this->showMetCount ?
-			std::to_string(playerRenderData.metCount) :
-			std::to_string(record.wins) + ":" + std::to_string(record.losses)
-		);
-		int remainingPixels = area.Width - (padding.X * 2) - (*this->scale * (recordWidth + Canvas::GetCharWidth('*') + (Canvas::GetCharWidth('.') * 3)));
-		if (widthOfNamePx >= remainingPixels) {
-			// truncate
-			int characters = 0;
-			int pixels = 0;
-			for (char ch : playerName)
-			{
-				int width = *this->scale * Canvas::GetCharWidth(ch);
-				if ((pixels + width) > remainingPixels)
-					break;
-				pixels += width;
-				characters++;
+		Canvas::SetPosition(Vector2{ area.X, area.Y });
+		Canvas::BeginAlpha(alphaVal);
+		//Canvas::BeginScale(*this->scale);
+		Canvas::BeginTable({
+			{ Canvas::Alignment::LEFT },
+			{ Canvas::Alignment::RIGHT, 10, 50 },
+		}, {
+			Canvas::Color::Black,
+			Canvas::Color::Green,
+			area.Width,
+			{ Canvas::Color::Green, Canvas::TableBorder::ALL },
+		});
+		if (renderPlayer) {
+			//Canvas::Row({ { "You" }, { "" } });
+		}
+		for (auto const& playerRenderData : renderData)
+		{
+			std::string playerName = playerRenderData.name;
+			auto widthOfNamePx = Canvas::GetStringWidth(playerName) * (*this->scale);
+			Record record = playerRenderData.record;
+			int recordWidth = Canvas::GetStringWidth(
+				*this->showMetCount ?
+				std::to_string(playerRenderData.metCount) :
+				std::to_string(record.wins) + ":" + std::to_string(record.losses)
+			);
+			int remainingPixels = area.Width - (padding.X * 2) - (*this->scale * (recordWidth + Canvas::GetCharWidth('*') + (Canvas::GetCharWidth('.') * 3)));
+			if (widthOfNamePx >= remainingPixels) {
+				// truncate
+				int characters = 0;
+				int pixels = 0;
+				for (char ch : playerName)
+				{
+					int width = *this->scale * Canvas::GetCharWidth(ch);
+					if ((pixels + width) > remainingPixels)
+						break;
+					pixels += width;
+					characters++;
+				}
+				playerName = playerName.substr(0, characters) + "...";
 			}
-			playerName = playerName.substr(0, characters) + "...";
-		}
-		if (playerRenderData.metCount > 1)
-			playerName += "*";
-		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString(playerName, *this->scale, *this->scale);
+			// Append * when we are showing the record, the record is 0:0, and we have met them before
+			if (!*this->showMetCount && playerRenderData.metCount > 1 && (record.wins == 0 && record.losses == 0))
+				playerName += "*";
 
-		if (*this->showMetCount) {
-			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(std::to_string(playerRenderData.metCount)), yPos });
-			canvas.DrawString(std::to_string(playerRenderData.metCount), *this->scale, *this->scale);
+			std::stringstream data;
+			if (*this->showMetCount) {
+				data << playerRenderData.metCount;
+			}
+			else {
+				data << record.wins << ":" << record.losses;
+			}
+			Canvas::Row({ { playerName }, { data.str() } });
 		}
-		else {
-			std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
-			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(recordStr), yPos });
-			canvas.DrawString(recordStr, *this->scale, *this->scale);
-		}
-
-		yPos += spacing;
+		Canvas::Rect r = Canvas::EndTable();
+		//Canvas::EndScale();
+		Canvas::EndAlpha();
+		return r;
 	}
-
-	return area;
 }
 

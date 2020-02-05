@@ -63,10 +63,6 @@ struct Record {
 };
 
 
-struct Rect {
-	int X, Y, Width, Height;
-};
-
 struct RenderData {
 	std::string id;
 	std::string name;
@@ -176,7 +172,7 @@ private:
 	Record GetRecord(SteamID steamID, int playlist, Side side);
 	Record GetRecord(std::string steamID, int playlist, Side side);
 	void SetRecord();
-	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer);
+	Canvas::Rect RenderUI(Canvas::Rect area, const std::vector<RenderData>& renderData, bool renderPlayer, bool newCanvas);
 	void AddPlayerToRenderData(PriWrapper player);
 	void RemovePlayerFromRenderData(PriWrapper player);
 	bool IsInRealGame();
