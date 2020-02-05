@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.1", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.2", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -141,7 +141,7 @@ void DejaVu::onLoad()
 	RegisterCVar("cl_dejavu_track_opponents", "Track players if opponents", true, this->trackOpponents);
 	RegisterCVar("cl_dejavu_track_teammates", "Track players if teammates", true, this->trackTeammates);
 	RegisterCVar("cl_dejavu_track_grouped", "Track players if in party", true, this->trackGrouped);
-	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of the record", false, this->showMetCount);
+	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of your record", true, this->showMetCount);
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
 
@@ -915,7 +915,8 @@ Rect DejaVu::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<Render
 			}
 			playerName = playerName.substr(0, characters) + "...";
 		}
-		if (playerRenderData.metCount > 1)
+		// Only show * if showing record, we've met them, and record is 0:0
+		if (!*this->showMetCount && playerRenderData.metCount > 1 && (record.wins == 0 && record.losses == 0))
 			playerName += "*";
 		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
 		canvas.DrawString(playerName, *this->scale, *this->scale);
