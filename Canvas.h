@@ -68,6 +68,7 @@ namespace Canvas {
 		Alignment alignment = Alignment::RIGHT;
 		int minWidth = 10;
 		std::optional<int> maxWidth;
+		std::optional<int> width;
 	};
 
 	struct CanvasCellOptions {

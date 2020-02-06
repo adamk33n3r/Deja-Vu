@@ -242,38 +242,6 @@ void Canvas::Row(const std::initializer_list<CanvasCellOptions>& rowData)
 
 Canvas::Rect Canvas::EndTable()
 {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	//TODO: Add max width to columns and with that add truncating text with ...
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	CHECK_CTX;
 	Vector2 pos = GetPosition();
 	Rect usedArea;
@@ -289,10 +257,44 @@ Canvas::Rect Canvas::EndTable()
 			// Don't worry about extra columns
 			if (colNum >= GCanvas->tableContext.totalCols)
 				break;
-			colSizes[colNum] = max(GetStringWidth(col.text) + GCanvas->tableContext.padding * 2, colSizes[colNum]);
 			auto columnOption = GCanvas->tableContext.columnOptions[colNum];
-			if (columnOption.maxWidth.has_value())
-				colSizes[colNum] = min(columnOption.maxWidth.value(), colSizes[colNum]);
+			if (columnOption.width.has_value())
+				colSizes[colNum] = columnOption.width.value();
+			else
+			{
+				colSizes[colNum] = max(GetStringWidth(col.text) + GCanvas->tableContext.padding * 2, colSizes[colNum]);
+				if (columnOption.maxWidth.has_value())
+					colSizes[colNum] = min(columnOption.maxWidth.value(), colSizes[colNum]);
+			}
+			colNum++;
+		}
+	}
+	auto needToAutoSizeCols = GCanvas->tableContext.tableOptions.width.has_value();
+	if (needToAutoSizeCols)
+	{
+		int totalWidth = GCanvas->tableContext.tableOptions.width.value();
+		int remainingWidth = totalWidth - GCanvas->tableContext.tableOptions.padding.Left - GCanvas->tableContext.tableOptions.padding.Right;
+
+		int colNum = 0;
+		int canGrowCount = 0;
+		for (int colSize : colSizes)
+		{
+			auto columnOption = GCanvas->tableContext.columnOptions[colNum];
+			bool canGrow = !columnOption.maxWidth.has_value() && !columnOption.width.has_value();
+			if (canGrow)
+				canGrowCount++;
+			else
+				remainingWidth -= colSize;
+			colNum++;
+		}
+		colNum = 0;
+		float autoColWidth = (float)remainingWidth / canGrowCount;
+		for (int colSize : colSizes)
+		{
+			auto columnOption = GCanvas->tableContext.columnOptions[colNum];
+			bool canGrow = !columnOption.maxWidth.has_value() && !columnOption.width.has_value();
+			if (canGrow)
+				colSizes[colNum] = autoColWidth;
 			colNum++;
 		}
 	}
@@ -300,7 +302,7 @@ Canvas::Rect Canvas::EndTable()
 	usedArea.Width = totalWidth;
 
 	int maxX = pos.X + totalWidth;
-	int maxY = pos.Y + (GetCharHeight() + 2) * GCanvas->tableContext.rows.size() + GCanvas->tableContext.tableOptions.padding.Bottom;
+	int maxY = pos.Y + (GetCharHeight() + 2) * GCanvas->tableContext.rows.size() + GCanvas->tableContext.tableOptions.padding.Top + GCanvas->tableContext.tableOptions.padding.Bottom;
 
 	// Draw background
 	SetColor(GCanvas->tableContext.tableOptions.bgColor);
@@ -326,26 +328,45 @@ Canvas::Rect Canvas::EndTable()
 	int rowAcc = 0;
 	for (auto row : GCanvas->tableContext.rows)
 	{
-		int xPos = pos.X;
+		int xPos = pos.X + GCanvas->tableContext.tableOptions.padding.Left;
 		int i = 0;
 		for (auto col : row)
 		{
 			if (i >= GCanvas->tableContext.totalCols)
 				break;
 			int colSize = colSizes[i];
+			SetColor(col.textColor.value_or(GCanvas->tableContext.tableOptions.fgColor));
+			std::string colText = col.text;
+			int strWidth = GetStringWidth(colText);
+			int remainingPixels = colSize - GCanvas->tableContext.padding * 2;
+			// Need to truncate
+			if (strWidth > remainingPixels)
+			{
+				remainingPixels -= Canvas::GetCharWidth('.') * 3;
+				int characters = 0;
+				int pixels = 0;
+				for (char ch : colText)
+				{
+					int width = Canvas::GetCharWidth(ch);
+					if ((pixels + width) > remainingPixels)
+						break;
+					pixels += width;
+					characters++;
+				}
+				colText = colText.substr(0, characters) + "...";
+			}
+			strWidth = GetStringWidth(colText);
 			auto& options = GCanvas->tableContext.columnOptions[i];
 			switch (col.alignment.value_or(options.alignment)) {
 				case Alignment::LEFT:
 					SetPosition(Vector2{ xPos + GCanvas->tableContext.padding, yPos });
 					break;
 				case Alignment::CENTER: {
-					int strWidth = GetStringWidth(col.text);
 					int offset = (colSize - strWidth) / 2;
 					SetPosition(Vector2{ xPos + offset, yPos });
 					break;
 				}
 				case Alignment::RIGHT: {
-					int strWidth = GetStringWidth(col.text);
 					int offset = colSize - GCanvas->tableContext.padding - strWidth;
 					SetPosition(Vector2{ xPos + offset, yPos });
 					break;
@@ -354,12 +375,7 @@ Canvas::Rect Canvas::EndTable()
 					SetPosition(Vector2{ xPos + GCanvas->tableContext.padding, yPos });
 					break;
 			}
-			//SetPosition(Vector2{ xPos + GCanvas->tableContext.padding, yPos });
-					//int strWidth = GetStringWidth(col);
-					//int offset = colSize - GCanvas->tableContext.padding - strWidth;
-					//SetPosition(Vector2{ xPos + offset, yPos });
-			SetColor(col.textColor.value_or(GCanvas->tableContext.tableOptions.fgColor));
-			DrawString(col.text);
+			DrawString(colText);
 			xPos += colSize;
 
 			// TODO: make this drawn once per column from top to bottom
@@ -387,7 +403,7 @@ Canvas::Rect Canvas::EndTable()
 
 		rowAcc++;
 	}
-	usedArea.Height = yPos - usedArea.Y;
+	usedArea.Height = yPos - usedArea.Y + GCanvas->tableContext.tableOptions.padding.Bottom;
 
 	return usedArea;
 }

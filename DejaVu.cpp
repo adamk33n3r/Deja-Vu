@@ -855,23 +855,22 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	float maxX = size.X - width;
 	float maxY = size.Y - totalHeight;
 
-	Canvas::Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
-	rect = RenderUI(rect, this->blueTeamRenderData, renderPlayerBlue, false);
-	rect.Y += rect.Height + yOffset;
-	height = orangeSize * spacing + padding.Y * 2;
-	rect.Height = height;
-	RenderUI(rect, this->orangeTeamRenderData, renderPlayerOrange, false);
+	//Canvas::Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
+	//rect = RenderUI(rect, this->blueTeamRenderData, renderPlayerBlue, false);
+	//rect.Y += rect.Height + yOffset;
+	//height = orangeSize * spacing + padding.Y * 2;
+	//rect.Height = height;
+	//RenderUI(rect, this->orangeTeamRenderData, renderPlayerOrange, false);
 
-	// Keeps track of the biggest table width since we don't know the width until after render
-	static int maxWidthTable = 200;
-	Canvas::Rect rect2{(*this->xPos * maxX) + 210, (*this->yPos * maxY), maxWidthTable, height};
+	static int prevRenderHeight = 0;
+	maxY = size.Y - prevRenderHeight;
+	height = blueSize * spacing + padding.Y * 2;
+	Canvas::Rect rect2{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
 	rect2 = RenderUI(rect2, this->blueTeamRenderData, renderPlayerBlue, true);
-	int biggestTableWidth = rect2.Width;
-	rect2.Y += rect.Height + yOffset;
+	prevRenderHeight = rect2.Height;
+	rect2.Y += rect2.Height + yOffset;
 	rect2 = RenderUI(rect2, this->orangeTeamRenderData, renderPlayerOrange, true);
-	if (rect2.Width > biggestTableWidth)
-		biggestTableWidth = rect2.Width;
-	maxWidthTable = biggestTableWidth;
+	prevRenderHeight += rect2.Height + yOffset;
 }
 
 Canvas::Rect DejaVu::RenderUI(Canvas::Rect area, const std::vector<RenderData>& renderData, bool renderPlayer, bool newCanvas)
@@ -959,41 +958,23 @@ Canvas::Rect DejaVu::RenderUI(Canvas::Rect area, const std::vector<RenderData>& 
 		//Canvas::BeginScale(*this->scale);
 		Canvas::BeginTable({
 			{ Canvas::Alignment::LEFT },
-			{ Canvas::Alignment::RIGHT, 10, 50 },
+			{ Canvas::Alignment::RIGHT, 10, std::nullopt, *this->showMetCount ? 35 : 65 },
 		}, {
-			Canvas::Color::Black,
-			Canvas::Color::Green,
+			Canvas::Color(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, *this->enabledBackground ? 255 : 0),
+			Canvas::Color(*this->textColorR, *this->textColorG, *this->textColorB),
 			area.Width,
-			{ Canvas::Color::Green, Canvas::TableBorder::ALL },
+			//{ Canvas::Color::Green, Canvas::TableBorder::ALL },
+			{},
+			{0, 0, 5, 2}
 		});
 		if (renderPlayer) {
-			//Canvas::Row({ { "You" }, { "" } });
+			Canvas::Row({ { "You" }, { "" } });
 		}
 		for (auto const& playerRenderData : renderData)
 		{
 			std::string playerName = playerRenderData.name;
 			auto widthOfNamePx = Canvas::GetStringWidth(playerName) * (*this->scale);
 			Record record = playerRenderData.record;
-			int recordWidth = Canvas::GetStringWidth(
-				*this->showMetCount ?
-				std::to_string(playerRenderData.metCount) :
-				std::to_string(record.wins) + ":" + std::to_string(record.losses)
-			);
-			int remainingPixels = area.Width - (padding.X * 2) - (*this->scale * (recordWidth + Canvas::GetCharWidth('*') + (Canvas::GetCharWidth('.') * 3)));
-			if (widthOfNamePx >= remainingPixels) {
-				// truncate
-				int characters = 0;
-				int pixels = 0;
-				for (char ch : playerName)
-				{
-					int width = *this->scale * Canvas::GetCharWidth(ch);
-					if ((pixels + width) > remainingPixels)
-						break;
-					pixels += width;
-					characters++;
-				}
-				playerName = playerName.substr(0, characters) + "...";
-			}
 			// Append * when we are showing the record, the record is 0:0, and we have met them before
 			if (!*this->showMetCount && playerRenderData.metCount > 1 && (record.wins == 0 && record.losses == 0))
 				playerName += "*";
@@ -1006,6 +987,7 @@ Canvas::Rect DejaVu::RenderUI(Canvas::Rect area, const std::vector<RenderData>& 
 				data << record.wins << ":" << record.losses;
 			}
 			Canvas::Row({ { playerName }, { data.str() } });
+			//Canvas::Row({ { playerName }, { "999" } });
 		}
 		Canvas::Rect r = Canvas::EndTable();
 		//Canvas::EndScale();
