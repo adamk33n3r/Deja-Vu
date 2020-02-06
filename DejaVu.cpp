@@ -16,7 +16,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.1", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.2", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
