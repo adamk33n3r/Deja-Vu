@@ -6,6 +6,8 @@
 #define _HAS_STD_BYTE 0
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include <vector>
+#include <map>
+#include <set>
 #include <filesystem>
 #if ENABLE_GUI
 #include "bakkesmod/plugin/pluginwindow.h"
@@ -151,7 +153,7 @@ private:
 	bool gameIsOver = false;
 
 	std::map<std::string, PriWrapper> currentMatchPRIs;
-	std::map<std::string, PriWrapper> currentMatchPRIsMetList;
+	std::map<std::string, std::set<std::string>> matchPRIsMetList;
 	std::vector<RenderData> blueTeamRenderData;
 	std::vector<RenderData> orangeTeamRenderData;
 

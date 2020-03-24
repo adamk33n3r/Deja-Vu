@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.2", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.4", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -92,6 +92,7 @@ void SetupLogger(std::string logPath, bool enabled)
 void DejaVu::HookAndLogEvent(std::string eventName)
 {
 	this->gameWrapper->HookEvent(eventName, std::bind(&DejaVu::LogChatbox, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent(eventName, std::bind(&DejaVu::Log, this, std::placeholders::_1));
 }
 
 void DejaVu::CleanUpJson()
@@ -126,6 +127,7 @@ void DejaVu::onLoad()
 		HandlePlayerAdded("dejavu_track_current");
 	}, "Tracks current lobby", PERMISSION_ONLINE);
 
+#if DEV
 	this->cvarManager->registerNotifier("dejavu_test", [this](const std::vector<std::string>& commands) {
 		this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
 			Log("test after 5");
@@ -135,6 +137,26 @@ void DejaVu::onLoad()
 	this->cvarManager->registerNotifier("dejavu_cleanup", [this](const std::vector<std::string>& commands) {
 		CleanUpJson();
 	}, "Cleans up the json", PERMISSION_ALL);
+
+	this->cvarManager->registerNotifier("dejavu_dump_list", [this](const std::vector<std::string>& commands) {
+		if (this->matchPRIsMetList.size() == 0)
+		{
+			this->cvarManager->log("No entries in list");
+			return;
+		}
+
+		for (auto match : this->matchPRIsMetList)
+		{
+			std::string guid = match.first;
+			this->cvarManager->log("For match GUID:" + guid);
+			auto set = match.second;
+			for (auto playerID : set)
+			{
+				this->cvarManager->log("    " + playerID);
+			}
+		}
+	}, "Dumps met list", PERMISSION_ALL);
+#endif DEV
 
 	RegisterCVar("cl_dejavu_enable", "Enables plugin", true, this->enabled);
 
@@ -213,6 +235,14 @@ void DejaVu::onLoad()
 
 	this->gameWrapper->UnregisterDrawables();
 	this->gameWrapper->RegisterDrawable(bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
+
+	/*
+	HookEventWithCaller<ServerWrapper>("FUNCTION", bind(&CLASSNAME::FUNCTIONNAME, this, placeholders::_1, 2, 3);
+	void CLASSNAME::FUNCTIONNAME(ServerWrapper caller, void* params, string funcName)
+	{
+		bool returnVal = (bool)params;
+	}
+	*/
 
 	//std::string eventsToLog[] = {
 		//"Function TAGame.GameEvent_Soccar_TA.EndGame",
@@ -455,7 +485,6 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 				}
 
 				SteamID steamID = player.GetUniqueId();
-				LOG(INFO) << "steamID: " << steamID.ID;
 
 				std::string steamIDStr = std::to_string(steamID.ID);
 
@@ -470,6 +499,7 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 				}
 
 				std::string playerName = player.GetPlayerName().ToString();
+				LOG(INFO) << "steamID: " << steamID.ID << " name: " << playerName;
 
 				// Bots
 				if (steamID.ID == 0)
@@ -485,26 +515,30 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 				//GetAndSetMetMMR(steamID, curPlaylist, steamID);
 
 				// Only do met count logic if we haven't yet
-				if (this->currentMatchPRIsMetList.count(steamIDStr) == 0)
+				if (this->matchPRIsMetList[server.GetMatchGUID()].count(steamIDStr) == 0)
 				{
-					this->currentMatchPRIsMetList.emplace(steamIDStr, player);
+					this->matchPRIsMetList[server.GetMatchGUID()].emplace(steamIDStr);
 					int metCount;
 					if (!this->data["players"].contains(steamIDStr))
 					{
 						metCount = 1;
+						std::time_t now = std::time(0);
+						auto dateTime = std::ctime(&now);
 						this->data["players"][steamIDStr] = json({
 							{ "metCount", metCount },
 							{ "name", playerName },
-							//{ "playerMetMMR", { { std::to_string(curPlaylist), -1 } } },
-							//{ "otherMetMMR", { { std::to_string(curPlaylist), -1 } } },
+							{ "timeMet", dateTime },
 						});
 					} else
 					{
+						std::time_t now = std::time(0);
+						auto dateTime = std::ctime(&now);
 						json& playerData = this->data["players"][steamIDStr];
 						metCount = playerData["metCount"].get<int>();
 						metCount++;
 						playerData["metCount"] = metCount;
 						playerData["name"] = playerName;
+						playerData["updatedAt"] = dateTime;
 					}
 					needsSave = true;
 				}
@@ -636,7 +670,8 @@ void DejaVu::Reset()
 {
 	this->gameIsOver = false;
 	this->currentMatchPRIs.clear();
-	this->currentMatchPRIsMetList.clear();
+	// Maybe move this to HandleGameLeave but probably don't need to worry about it
+	//this->matchPRIsMetList.clear();
 	this->blueTeamRenderData.clear();
 	this->orangeTeamRenderData.clear();
 }
