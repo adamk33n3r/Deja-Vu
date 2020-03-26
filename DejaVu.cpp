@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.4", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.5", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -445,8 +445,15 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 	LOG(INFO) << "HandlePlayerAdded: " << eventName;
 	if (this->gameIsOver)
 		return;
-	ServerWrapper server = this->gameWrapper->GetOnlineGame();
+	ServerWrapper server = this->GetCurrentServer();
 	LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
+	if (server.IsNull())
+		return;
+	std::string matchGUID = server.GetMatchGUID();
+	LOG(INFO) << "Match GUID: " << matchGUID;
+	// Too early I guess, so bail since we need the match guid for tracking
+	if (matchGUID == "No worldInfo")
+		return;
 	MMRWrapper mw = this->gameWrapper->GetMMRWrapper();
 	ArrayWrapper<PriWrapper> pris = server.GetPRIs();
 
@@ -515,12 +522,14 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 				//GetAndSetMetMMR(steamID, curPlaylist, steamID);
 
 				// Only do met count logic if we haven't yet
-				if (this->matchPRIsMetList[server.GetMatchGUID()].count(steamIDStr) == 0)
+				if (this->matchPRIsMetList[matchGUID].count(steamIDStr) == 0)
 				{
-					this->matchPRIsMetList[server.GetMatchGUID()].emplace(steamIDStr);
+					LOG(INFO) << "Haven't processed yet: " << playerName;
+					this->matchPRIsMetList[matchGUID].emplace(steamIDStr);
 					int metCount;
 					if (!this->data["players"].contains(steamIDStr))
 					{
+						LOG(INFO) << "Haven't met yet: " << playerName;
 						metCount = 1;
 						std::time_t now = std::time(0);
 						auto dateTime = std::ctime(&now);
@@ -531,6 +540,7 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 						});
 					} else
 					{
+						LOG(INFO) << "Have met before: " << playerName;
 						std::time_t now = std::time(0);
 						auto dateTime = std::ctime(&now);
 						json& playerData = this->data["players"][steamIDStr];
