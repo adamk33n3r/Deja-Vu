@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.6", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.7", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -610,7 +610,10 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 
 void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
 {
-	LOG(INFO) << "Removing player: " << player.GetPlayerName().ToString();
+	if (player.IsNull())
+		return;
+	if (!player.GetPlayerName().IsNull())
+		LOG(INFO) << "Removing player: " << player.GetPlayerName().ToString();
 	std::string steamID = std::to_string(player.GetUniqueId().ID);
 	LOG(INFO) << "Player SteamID: " << steamID;
 	this->blueTeamRenderData.erase(std::remove_if(this->blueTeamRenderData.begin(), this->blueTeamRenderData.end(), [steamID](const RenderData& data) {
@@ -645,7 +648,8 @@ void DejaVu::HandlePlayerRemoved(std::string eventName)
 		}
 		if (!isInGame)
 		{
-			LOG(INFO) << "Player is no longer in game: " << player.GetPlayerName().ToString();
+			if (!player.IsNull() && !player.GetPlayerName().IsNull())
+				LOG(INFO) << "Player is no longer in game: " << player.GetPlayerName().ToString();
 			it = this->currentMatchPRIs.erase(it);
 			RemovePlayerFromRenderData(player);
 		}
