@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.5", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.6", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -232,6 +232,7 @@ void DejaVu::onLoad()
 
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", std::bind(&DejaVu::HandleGameEnd, this, std::placeholders::_1));
 	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&DejaVu::HandleGameLeave, this, std::placeholders::_1));
+	// Function TAGame.GFxHUD_TA.HandlePenaltyChanged
 
 	this->gameWrapper->UnregisterDrawables();
 	this->gameWrapper->RegisterDrawable(bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
@@ -449,6 +450,8 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 	LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
 	if (server.IsNull())
 		return;
+	if (server.IsPlayingPrivate())
+		return;
 	std::string matchGUID = server.GetMatchGUID();
 	LOG(INFO) << "Match GUID: " << matchGUID;
 	// Too early I guess, so bail since we need the match guid for tracking
@@ -464,104 +467,102 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 	for (int i = 0; i < len; i++)
 	{
 		PriWrapper player = pris.Get(i);
-
-		PlayerControllerWrapper localPlayerCont = server.GetLocalPrimaryPlayer();
-		if (!localPlayerCont.IsNull())
+		bool isSpectator = player.GetbIsSpectator();
+		if (isSpectator)
 		{
-			PriWrapper localPlayer = localPlayerCont.GetPRI();
-			if (!localPlayer.IsNull())
+			LOG(INFO) << "player is spectator. skipping";
+			continue;
+		}
+
+		PriWrapper localPlayer = GetLocalPlayerPRI();
+		if (!localPlayer.IsNull())
+		{
+
+			bool isTeammate = player.GetTeamNum() == localPlayer.GetTeamNum();
+			unsigned long long myLeaderID = localPlayer.GetPartyLeader().ID;
+			bool isInMyGroup = myLeaderID != 0 && player.GetPartyLeader().ID == myLeaderID;
+
+			if (isTeammate && !*this->trackTeammates)
 			{
-
-				bool isTeammate = player.GetTeamNum() == localPlayer.GetTeamNum();
-				unsigned long long myLeaderID = localPlayer.GetPartyLeader().ID;
-				bool isInMyGroup = myLeaderID != 0 && player.GetPartyLeader().ID == myLeaderID;
-
-				if (isTeammate && !*this->trackTeammates)
-				{
-					continue;
-				}
-
-				if (!isTeammate && !*this->trackOpponents)
-				{
-					continue;
-				}
-
-				if (isInMyGroup && !*this->trackGrouped)
-				{
-					continue;
-				}
-
-				SteamID steamID = player.GetUniqueId();
-
-				std::string steamIDStr = std::to_string(steamID.ID);
-
-				SteamID localSteamID = localPlayer.GetUniqueId();
-
-				// Skip self
-				if (steamID.ID == localSteamID.ID) {
-					continue;
-				//} else
-				//{
-				//	this->gameWrapper->LogToChatbox(std::to_string(steamID.ID) + " != " + std::to_string(localSteamID.ID));
-				}
-
-				std::string playerName = player.GetPlayerName().ToString();
-				LOG(INFO) << "steamID: " << steamID.ID << " name: " << playerName;
-
-				// Bots
-				if (steamID.ID == 0)
-				{
-					//playerName = "[BOT]";
-					continue;
-				}
-
-				int curPlaylist = mw.GetCurrentPlaylist();
-
-				//GetAndSetMetMMR(localSteamID, curPlaylist, steamID);
-
-				//GetAndSetMetMMR(steamID, curPlaylist, steamID);
-
-				// Only do met count logic if we haven't yet
-				if (this->matchPRIsMetList[matchGUID].count(steamIDStr) == 0)
-				{
-					LOG(INFO) << "Haven't processed yet: " << playerName;
-					this->matchPRIsMetList[matchGUID].emplace(steamIDStr);
-					int metCount;
-					if (!this->data["players"].contains(steamIDStr))
-					{
-						LOG(INFO) << "Haven't met yet: " << playerName;
-						metCount = 1;
-						std::time_t now = std::time(0);
-						auto dateTime = std::ctime(&now);
-						this->data["players"][steamIDStr] = json({
-							{ "metCount", metCount },
-							{ "name", playerName },
-							{ "timeMet", dateTime },
-						});
-					} else
-					{
-						LOG(INFO) << "Have met before: " << playerName;
-						std::time_t now = std::time(0);
-						auto dateTime = std::ctime(&now);
-						json& playerData = this->data["players"][steamIDStr];
-						metCount = playerData["metCount"].get<int>();
-						metCount++;
-						playerData["metCount"] = metCount;
-						playerData["name"] = playerName;
-						playerData["updatedAt"] = dateTime;
-					}
-					needsSave = true;
-				}
-				AddPlayerToRenderData(player);
-
+				continue;
 			}
-			else {
-				LOG(INFO) << "localPlayer is null";
+
+			if (!isTeammate && !*this->trackOpponents)
+			{
+				continue;
 			}
+
+			if (isInMyGroup && !*this->trackGrouped)
+			{
+				continue;
+			}
+
+			SteamID steamID = player.GetUniqueId();
+
+			std::string steamIDStr = std::to_string(steamID.ID);
+
+			SteamID localSteamID = localPlayer.GetUniqueId();
+
+			// Skip self
+			if (steamID.ID == localSteamID.ID) {
+				continue;
+			//} else
+			//{
+			//	this->gameWrapper->LogToChatbox(std::to_string(steamID.ID) + " != " + std::to_string(localSteamID.ID));
+			}
+
+			std::string playerName = player.GetPlayerName().ToString();
+			LOG(INFO) << "steamID: " << steamID.ID << " name: " << playerName;
+
+			// Bots
+			if (steamID.ID == 0)
+			{
+				//playerName = "[BOT]";
+				continue;
+			}
+
+			int curPlaylist = mw.GetCurrentPlaylist();
+
+			//GetAndSetMetMMR(localSteamID, curPlaylist, steamID);
+
+			//GetAndSetMetMMR(steamID, curPlaylist, steamID);
+
+			// Only do met count logic if we haven't yet
+			if (this->matchPRIsMetList[matchGUID].count(steamIDStr) == 0)
+			{
+				LOG(INFO) << "Haven't processed yet: " << playerName;
+				this->matchPRIsMetList[matchGUID].emplace(steamIDStr);
+				int metCount;
+				if (!this->data["players"].contains(steamIDStr))
+				{
+					LOG(INFO) << "Haven't met yet: " << playerName;
+					metCount = 1;
+					std::time_t now = std::time(0);
+					auto dateTime = std::ctime(&now);
+					this->data["players"][steamIDStr] = json({
+						{ "metCount", metCount },
+						{ "name", playerName },
+						{ "timeMet", dateTime },
+					});
+				} else
+				{
+					LOG(INFO) << "Have met before: " << playerName;
+					std::time_t now = std::time(0);
+					auto dateTime = std::ctime(&now);
+					json& playerData = this->data["players"][steamIDStr];
+					metCount = playerData["metCount"].get<int>();
+					metCount++;
+					playerData["metCount"] = metCount;
+					playerData["name"] = playerName;
+					playerData["updatedAt"] = dateTime;
+				}
+				needsSave = true;
+			}
+			AddPlayerToRenderData(player);
 
 		}
 		else {
-			LOG(INFO) << "localPlayerController is null";
+			LOG(INFO) << "localPlayer is null";
 		}
 
 	}

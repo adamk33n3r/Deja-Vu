@@ -9,6 +9,7 @@ $zipFile = "$buildDir\..\DejaVu - $versionString.zip"
 
 if (Test-Path $zipFile -PathType Leaf)
 {
+    [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
     $msgBoxInput = [System.Windows.Forms.MessageBox]::Show('Release zip already exists. Do you want to overwrite?', 'File exists', 'YesNo', 'Error')
 
     switch  ($msgBoxInput) {
