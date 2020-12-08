@@ -8,6 +8,10 @@
 #include <typeindex>
 #include "canvaswrapper.h"
 #include "mmrwrapper.h"
+
+#ifdef __cpp_lib_filesystem
+#include <filesystem>
+#endif
 class GameEventWrapper;
 class TutorialWrapper;
 class ServerWrapper;
@@ -20,6 +24,10 @@ class PlayerControllerWrapper;
 class PluginManagerWrapper;
 class GuiManagerWrapper;
 class BindingsWrapper;
+class SequenceWrapper;
+class ItemsWrapper;
+class ClubDetailsWrapper;
+class UnrealStringWrapper;
 
 class BAKKESMOD_PLUGIN_IMPORT GameWrapper
 {
@@ -37,9 +45,15 @@ public:
 	bool IsInCustomTraining();
 	bool IsSpectatingInOnlineGame();
 
+	bool IsPaused();
+	bool IsUsingEpicVersion();
+	bool IsUsingSteamVersion();
+
+	int GetSteamVersion();
+	std::string GetPsyBuildID();
 
 	ServerWrapper					GetOnlineGame();
-	//TutorialWrapper					GetGameEventAsTutorial();
+	//TutorialWrapper				GetGameEventAsTutorial();
 	ServerWrapper					GetGameEventAsServer();
 	ReplayServerWrapper				GetGameEventAsReplay();
 
@@ -50,6 +64,7 @@ public:
 	PluginManagerWrapper			GetPluginManager();
 	GuiManagerWrapper				GetGUIManager();
 	PlayerControllerWrapper			GetPlayerController();
+	ItemsWrapper					GetItemsWrapper();
 	void							OverrideParams(void* src, size_t memsize);
 
 	void							SetTimeout(std::function<void(GameWrapper*)> theLambda, float time); //time in seconds, subject to change to std::shared_ptr<GameWrapper>
@@ -63,7 +78,7 @@ public:
 	void							UnhookEvent(std::string eventName);
 
 	void							HookEventPost(std::string eventName, std::function<void(std::string eventName)> callback);
-	void							RegisterBot(CARBODY car, std::function<void(float deltaTime, ControllerInput* inputs, CarWrapper* ownedCar, ServerWrapper* game)> tickfunc, std::string botName, bool overridePlayer);
+	void							UnhookEventPost(std::string eventName);
 
 	void							LogToChatbox(std::string text, std::string sender="BAKKESMOD");
 
@@ -73,16 +88,40 @@ public:
 	Supported file formats: Whatever D3DXCreateTextureFromFile supports.
 	*/
 	void							LoadToastTexture(std::string name, std::string path);
-
+	void							LoadToastTexture(std::string name, std::wstring path);
+#ifdef __cpp_lib_filesystem
+	void							LoadToastTexture(std::string name, std::filesystem::path path);
+#endif
 	/*
 	Texture is the name of the texture given in LoadToastTexture, not the path! "default" will show the normal BakkesMod logo
 	*/
 	void							Toast(std::string title, std::string text, std::string texture = "default", float timeout = 3.5f, uint8_t toastType = 0, float width = 290.f, float height = 60.f);
 	bool							IsKeyPressed(int keyName);
+	int								IsCursorVisible(); // 1 if due to RL, 2 if ImGui
 	void							ExecuteUnrealCommand(std::string command);
 	std::string 					GetRandomMap();
 	std::string 					GetCurrentMap();
 	unsigned long long				GetSteamID();
+	std::string						GetEpicID();
+	UniqueIDWrapper					GetUniqueID();
+	UnrealStringWrapper				GetPlayerName();
+	ClubDetailsWrapper				GetLocalClub();
+	SequenceWrapper					GetMainSequence();
+
+    Vector2							GetScreenSize();
+    float							GetSafeZoneRatio();
+    float							GetUIScale();
+    unsigned int					GetbMetric();
+    UnrealStringWrapper				GetUILanguage();
+    bool							GetbColorBlind();
+	// Path utilities
+#ifdef __cpp_lib_filesystem
+	std::filesystem::path			GetBakkesModPath();
+	std::filesystem::path			GetDataFolder();
+	std::filesystem::path			FixRelativePath(std::filesystem::path path);
+#endif
+	std::wstring					GetBakkesModPathW();
+	std::wstring					GetDataFolderW();
 
 	template<typename T, typename std::enable_if<std::is_base_of<ObjectWrapper, T>::value>::type* = nullptr>
 	void							HookEventWithCaller(std::string eventName, std::function<void(T caller, void* params, std::string eventName)> callback);

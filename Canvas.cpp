@@ -203,7 +203,7 @@ void Canvas::EndTable()
 		int colNum = 0;
 		for (auto col : row)
 		{
-			colSizes[colNum] = max(GetStringWidth(col) + GCanvas->tableContext.padding * 2, colSizes[colNum]);
+			colSizes[colNum] = std::max(GetStringWidth(col) + GCanvas->tableContext.padding * 2, colSizes[colNum]);
 			colNum++;
 		}
 	}

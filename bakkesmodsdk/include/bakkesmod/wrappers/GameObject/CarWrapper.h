@@ -25,12 +25,13 @@ public:
 	void SetBoostCheap(bool b);
 	void SetCarRotation(Rotator rotation);
 	void ForceBoost(bool force);
-	string GetOwnerName();
+    std::string GetOwnerName();
 	void Unfreeze();
 	ControllerInput GetInput();
 	void SetInput(ControllerInput input);
 	void Destroy();
 	void Demolish();
+	unsigned long HasFlip();
 	int GetLoadoutBody();	//END SELF IMPLEMENTED
 
 	//AUTO-GENERATED FROM FIELDS

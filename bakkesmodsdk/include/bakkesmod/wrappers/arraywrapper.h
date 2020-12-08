@@ -11,6 +11,7 @@
 #include "./GameObject/TeamWrapper.h"
 #include "./GameObject/GoalWrapper.h"
 #include "./GameObject/BoostPickupWrapper.h"
+
 class ActorWrapper;
 class CarWrapper;
 class BallWrapper;
@@ -25,7 +26,15 @@ class SampleHistoryWrapper;
 class StatGraphWrapper;
 class PlayerControllerWrapper;
 
-template<typename T> 
+class SequenceWrapper;
+class SequenceObjectWrapper;
+class SequenceVariableWrapper;
+
+class ProductWrapper;
+class OnlineProductWrapper;
+class ProductAttributeWrapper;
+
+template<typename T>
 class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper
 {
 public:
@@ -36,11 +45,55 @@ public:
 
 	int Count();
 	T Get(int index);
+    bool IsNull();
 protected:
-	struct Impl;
-	std::unique_ptr<Impl> pimpl;
+	PIMPL
 };
 
+template <typename T>
+class ArrayWrapperIterator
+{
+public:
+    ArrayWrapperIterator(ArrayWrapper<T>& collection,
+        size_t const index) :
+        index(index), collection(collection)
+    { }
+
+    bool operator!= (ArrayWrapperIterator const& other) const
+    {
+        return index != other.index;
+    }
+
+    T const& operator* () const
+    {
+        return collection.Get(index);
+    }
+
+    ArrayWrapperIterator const& operator++ ()
+    {
+        ++index;
+        return *this;
+    }
+
+private:
+    size_t   index;
+    ArrayWrapper<T>& collection;
+};
+
+template <typename T>
+inline ArrayWrapperIterator<T> begin(
+    ArrayWrapper<T>& collection)
+{
+    return ArrayWrapperIterator<T>(collection, 0);
+}
+
+template <typename T>
+inline ArrayWrapperIterator<T> end(
+    ArrayWrapper<T>& collection)
+{
+    return ArrayWrapperIterator<T>(
+        collection, collection.Count());
+}
 
 
 //
@@ -58,5 +111,12 @@ template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<SampleHistoryWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<StatGraphWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<PlayerControllerWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<wchar_t>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<SequenceWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<SequenceObjectWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<SequenceVariableWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<ProductWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<OnlineProductWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<ProductAttributeWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<int>;
 //template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<FSample>;
 #pragma warning(pop)

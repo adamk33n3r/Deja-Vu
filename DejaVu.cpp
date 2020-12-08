@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.7", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.8", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -118,6 +118,12 @@ void DejaVu::onLoad()
 	// Check 1v1. Player added event didn't fire after joining last
 	// Add debug
 	this->mmrWrapper = this->gameWrapper->GetMMRWrapper();
+
+	this->dataDir = this->gameWrapper->GetDataFolder().append("dejavu");
+	this->mainPath = std::filesystem::path(dataDir).append(this->mainFile);
+	this->tmpPath = std::filesystem::path(dataDir).append(this->tmpFile);
+	this->bakPath = std::filesystem::path(dataDir).append(this->bakFile);
+	this->logPath = std::filesystem::path(dataDir).append(this->logFile);
 
 	this->cvarManager->registerNotifier("dejavu_reload", [this](const std::vector<std::string>& commands) {
 		LoadData();
@@ -415,7 +421,7 @@ void DejaVu::WriteData()
 ServerWrapper DejaVu::GetCurrentServer()
 {
 	if (this->gameWrapper->IsInReplay())
-		return this->gameWrapper->GetGameEventAsReplay();
+		return this->gameWrapper->GetGameEventAsReplay().memory_address;
 	else if (this->gameWrapper->IsInOnlineGame())
 		return this->gameWrapper->GetOnlineGame();
 	else if (this->gameWrapper->IsInFreeplay())
@@ -479,8 +485,8 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 		{
 
 			bool isTeammate = player.GetTeamNum() == localPlayer.GetTeamNum();
-			unsigned long long myLeaderID = localPlayer.GetPartyLeader().ID;
-			bool isInMyGroup = myLeaderID != 0 && player.GetPartyLeader().ID == myLeaderID;
+			std::string myLeaderID = localPlayer.GetPartyLeaderID().str();
+			bool isInMyGroup = myLeaderID != "0" && player.GetPartyLeaderID().str() == myLeaderID;
 
 			if (isTeammate && !*this->trackTeammates)
 			{
@@ -497,49 +503,50 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 				continue;
 			}
 
-			SteamID steamID = player.GetUniqueId();
+			UniqueIDWrapper uniqueID = player.GetUniqueIdWrapper();
 
-			std::string steamIDStr = std::to_string(steamID.ID);
+			std::string uniqueIDStr = uniqueID.str();
 
-			SteamID localSteamID = localPlayer.GetUniqueId();
+			UniqueIDWrapper localUniqueID = localPlayer.GetUniqueIdWrapper();
+			std::string localUniqueIDStr = localUniqueID.str();
 
 			// Skip self
-			if (steamID.ID == localSteamID.ID) {
+			if (uniqueIDStr == localUniqueIDStr) {
 				continue;
 			//} else
 			//{
-			//	this->gameWrapper->LogToChatbox(std::to_string(steamID.ID) + " != " + std::to_string(localSteamID.ID));
+				//this->gameWrapper->LogToChatbox(uniqueID.str() + " != " + localUniqueID.str());
 			}
 
 			std::string playerName = player.GetPlayerName().ToString();
-			LOG(INFO) << "steamID: " << steamID.ID << " name: " << playerName;
+			LOG(INFO) << "uniqueID: " << uniqueIDStr << " name: " << playerName;
 
 			// Bots
-			if (steamID.ID == 0)
+			if (uniqueIDStr == "0")
 			{
-				//playerName = "[BOT]";
-				continue;
+				playerName = "[BOT]";
+				//continue;
 			}
 
 			int curPlaylist = mw.GetCurrentPlaylist();
 
-			//GetAndSetMetMMR(localSteamID, curPlaylist, steamID);
+			//GetAndSetMetMMR(localUniqueID, curPlaylist, uniqueID);
 
-			//GetAndSetMetMMR(steamID, curPlaylist, steamID);
+			//GetAndSetMetMMR(uniqueID, curPlaylist, uniqueID);
 
 			// Only do met count logic if we haven't yet
-			if (this->matchPRIsMetList[matchGUID].count(steamIDStr) == 0)
+			if (this->matchPRIsMetList[matchGUID].count(uniqueIDStr) == 0)
 			{
 				LOG(INFO) << "Haven't processed yet: " << playerName;
-				this->matchPRIsMetList[matchGUID].emplace(steamIDStr);
+				this->matchPRIsMetList[matchGUID].emplace(uniqueIDStr);
 				int metCount;
-				if (!this->data["players"].contains(steamIDStr))
+				if (!this->data["players"].contains(uniqueIDStr))
 				{
 					LOG(INFO) << "Haven't met yet: " << playerName;
 					metCount = 1;
 					std::time_t now = std::time(0);
 					auto dateTime = std::ctime(&now);
-					this->data["players"][steamIDStr] = json({
+					this->data["players"][uniqueIDStr] = json({
 						{ "metCount", metCount },
 						{ "name", playerName },
 						{ "timeMet", dateTime },
@@ -549,7 +556,7 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 					LOG(INFO) << "Have met before: " << playerName;
 					std::time_t now = std::time(0);
 					auto dateTime = std::ctime(&now);
-					json& playerData = this->data["players"][steamIDStr];
+					json& playerData = this->data["players"][uniqueIDStr];
 					metCount = playerData["metCount"].get<int>();
 					metCount++;
 					playerData["metCount"] = metCount;
@@ -574,10 +581,9 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 
 void DejaVu::AddPlayerToRenderData(PriWrapper player)
 {
-	auto steamID = player.GetUniqueId().ID;
-	std::string steamIDStr = std::to_string(steamID);
+	auto uniqueIDStr = player.GetUniqueIdWrapper().str();
 	// If we've already added him to the list, return
-	if (this->currentMatchPRIs.count(steamIDStr) != 0)
+	if (this->currentMatchPRIs.count(uniqueIDStr) != 0)
 		return;
 	auto server = GetCurrentServer();
 	auto myTeamNum = server.GetLocalPrimaryPlayer().GetPRI().GetTeamNum();
@@ -593,19 +599,19 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 		return;
 	}
 	// Team set, so we all good
-	this->currentMatchPRIs.emplace(steamIDStr, player);
+	this->currentMatchPRIs.emplace(uniqueIDStr, player);
 
 	LOG(INFO) << "adding player: " << player.GetPlayerName().ToString();
 
-	int metCount = this->data["players"][steamIDStr]["metCount"].get<int>();
+	int metCount = this->data["players"][uniqueIDStr]["metCount"].get<int>();
 	bool sameTeam = theirTeamNum == myTeamNum;
-	Record record = GetRecord(steamIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
+	Record record = GetRecord(uniqueIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
 	std::string playerName = player.GetPlayerName().ToString();
 	if (theirTeamNum == 0)
-		this->blueTeamRenderData.push_back({ steamIDStr, playerName, metCount, record });
+		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record });
 	else
-		this->orangeTeamRenderData.push_back({ steamIDStr, playerName, metCount, record });
+		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record });
 }
 
 void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
@@ -614,7 +620,7 @@ void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
 		return;
 	if (!player.GetPlayerName().IsNull())
 		LOG(INFO) << "Removing player: " << player.GetPlayerName().ToString();
-	std::string steamID = std::to_string(player.GetUniqueId().ID);
+	std::string steamID = player.GetUniqueIdWrapper().str();
 	LOG(INFO) << "Player SteamID: " << steamID;
 	this->blueTeamRenderData.erase(std::remove_if(this->blueTeamRenderData.begin(), this->blueTeamRenderData.end(), [steamID](const RenderData& data) {
 		return data.id == steamID;
@@ -642,7 +648,7 @@ void DejaVu::HandlePlayerRemoved(std::string eventName)
 		for (int i = 0; i < pris.Count(); i++)
 		{
 			auto playerInGame = pris.Get(i);
-			std::string playerInGameID = std::to_string(playerInGame.GetUniqueId().ID);
+			std::string playerInGameID = playerInGame.GetUniqueIdWrapper().str();
 			if (playerID == playerInGameID)
 				isInGame = true;
 		}
@@ -713,9 +719,9 @@ void DejaVu::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet)
 	}, 5);
 }
 
-Record DejaVu::GetRecord(SteamID steamID, int playlist, Side side)
+Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side)
 {
-	return GetRecord(std::to_string(steamID.ID), playlist, side);
+	return GetRecord(uniqueID.str(), playlist, side);
 }
 
 Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
@@ -762,20 +768,19 @@ void DejaVu::SetRecord()
 
 	bool myTeamWon = winningTeam.GetTeamNum() == localPRI.GetTeamNum();
 	Log(myTeamWon ? "YOU WON!" : "YOU LOST!");
-	SteamID myID = localPRI.GetUniqueId();
+	UniqueIDWrapper myID = localPRI.GetUniqueIdWrapper();
 	auto players = server.GetPRIs();
 	for (int i = 0; i < players.Count(); i++)
 	{
 		auto player = players.Get(i);
-		SteamID steamID = player.GetUniqueId();
-		if (steamID.ID == myID.ID)
+		std::string uniqueIDStr = player.GetUniqueIdWrapper().str();
+		if (uniqueIDStr == myID.str())
 			continue;
-		std::string playerID = std::to_string(steamID.ID);
 
 		bool sameTeam = player.GetTeamNum() == localPRI.GetTeamNum();
 
 		int playlist = server.GetPlaylist().GetPlaylistId();
-		Record record = GetRecord(steamID, playlist, sameTeam ? Side::Same : Side::Other);
+		Record record = GetRecord(uniqueIDStr, playlist, sameTeam ? Side::Same : Side::Other);
 		if (myTeamWon)
 			record.wins++;
 		else
@@ -787,7 +792,7 @@ void DejaVu::SetRecord()
 		else
 			sideStr = "against";
 
-		this->data["players"][std::to_string(steamID.ID)]["playlistData"][std::to_string(playlist)]["records"][sideStr] = record;
+		this->data["players"][uniqueIDStr]["playlistData"][std::to_string(playlist)]["records"][sideStr] = record;
 	}
 }
 

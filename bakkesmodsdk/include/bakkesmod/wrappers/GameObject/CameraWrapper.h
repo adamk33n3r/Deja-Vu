@@ -25,10 +25,12 @@ public:
 	float GetFOV();
 	void SetLockedFOV(bool lock);
 	ActorWrapper GetCameraAsActor();
-	string GetCameraState();
+	std::string GetCameraState();
+	void SetCameraState(std::string stateName);
 	Vector linterp(Vector start, Vector end, float elapsed, float speed);	//END SELF IMPLEMENTED
 	std::string GetFocusActor();
 	bool SetFocusActor(std::string actorName);
+    bool SetFlyCamBallTargetMode();
 
 	//AUTO-GENERATED FROM FIELDS
 	float GetSwivelFastSpeed();

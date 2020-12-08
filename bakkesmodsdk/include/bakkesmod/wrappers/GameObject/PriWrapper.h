@@ -8,6 +8,8 @@ class CarWrapper;
 class GameEventWrapper;
 class FXActorWrapper;
 class AirControlComponentWrapper;
+class ClubDetailsWrapper;
+class UniqueIDWrapper;
 
 class BAKKESMOD_PLUGIN_IMPORT PriWrapper : public PriXWrapper {
 public:
@@ -90,8 +92,15 @@ public:
 	void SetPawnType(unsigned char newPawnType);
 	unsigned char GetReplicatedWorstNetQualityBeyondLatency();
 	void SetReplicatedWorstNetQualityBeyondLatency(unsigned char newReplicatedWorstNetQualityBeyondLatency);
-	SteamID GetPartyLeader();
-	void SetPartyLeader(SteamID newPartyLeader);
+
+	[[deprecated("Use GetPartyLeaderID instead")]]
+	SteamID GetPartyLeader();//DEPRECATED
+	[[deprecated("Use SetPartyLeader that takes UniqueIDWrapper instead")]]
+	void SetPartyLeader(SteamID newPartyLeader);//DEPRECATED
+
+	UniqueIDWrapper GetPartyLeaderID();
+	void SetPartyLeader(UniqueIDWrapper newPartyLeader);
+
 	int GetTotalXP();
 	void SetTotalXP(int newTotalXP);
 	int GetXpLevel();
@@ -123,6 +132,7 @@ public:
 	UnrealStringWrapper GetPublicIP();
 	int GetSpectatorShortcut();
 	void SetSpectatorShortcut(int newSpectatorShortcut);
+	ClubDetailsWrapper GetClubDetails();
 
 	//AUTO-GENERATED FUNCTION PROXIES
 	void __ClubID__ChangeNotifyFunc();
@@ -211,8 +221,10 @@ public:
 	void ServerSplitScreenStatusChanged(unsigned long bInSplitScreen);
 	void UpdateSplitScreenStatus();
 	void OnPartyLeaderChanged();
-	void ServerSetPartyLeader(SteamID& InPartyLeader, unsigned long bInParty);
-	void SetPartyLeader2(SteamID& InPartyLeader, unsigned long bInParty);
+	[[deprecated("Function definition is empty and thus will not work")]]
+	void ServerSetPartyLeader(SteamID& InPartyLeader, unsigned long bInParty);//DEPRECATED
+	[[deprecated("Function definition is empty and thus will not work")]]
+	void SetPartyLeader2(SteamID& InPartyLeader, unsigned long bInParty);//DEPRECATED
 	void UpdatePartyStatus();
 	void OnSkillTierChanged();
 	void ReplicateSkillTier(int NewTier);

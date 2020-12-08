@@ -162,11 +162,11 @@ private:
 	inline static auto bakFile  = "player_counter.json.bak";
 	inline static auto logFile  = "dejavu.log";
 
-	inline static auto dataDir = std::filesystem::path("bakkesmod/data/dejavu");
-	inline static auto mainPath = std::filesystem::path(dataDir).append(mainFile);
-	inline static auto tmpPath = std::filesystem::path(dataDir).append(tmpFile);
-	inline static auto bakPath = std::filesystem::path(dataDir).append(bakFile);
-	inline static auto logPath = std::filesystem::path(dataDir).append(logFile);
+	inline static std::filesystem::path dataDir;
+	inline static std::filesystem::path mainPath;
+	inline static std::filesystem::path tmpPath;
+	inline static std::filesystem::path bakPath;
+	inline static std::filesystem::path logPath;
 
 	void Log(std::string msg);
 	void LogError(std::string msg);
@@ -175,7 +175,7 @@ private:
 	void WriteData();
 	void Reset();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
-	Record GetRecord(SteamID steamID, int playlist, Side side);
+	Record GetRecord(UniqueIDWrapper steamID, int playlist, Side side);
 	Record GetRecord(std::string steamID, int playlist, Side side);
 	void SetRecord();
 	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer);
