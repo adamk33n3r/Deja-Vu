@@ -15,7 +15,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.8", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.3.9", 0)
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
@@ -525,7 +525,7 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 			if (uniqueIDStr == "0")
 			{
 				playerName = "[BOT]";
-				//continue;
+				continue;
 			}
 
 			int curPlaylist = mw.GetCurrentPlaylist();
@@ -539,7 +539,7 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 			{
 				LOG(INFO) << "Haven't processed yet: " << playerName;
 				this->matchPRIsMetList[matchGUID].emplace(uniqueIDStr);
-				int metCount;
+				int metCount = 0;
 				if (!this->data["players"].contains(uniqueIDStr))
 				{
 					LOG(INFO) << "Haven't met yet: " << playerName;
@@ -557,8 +557,17 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 					std::time_t now = std::time(0);
 					auto dateTime = std::ctime(&now);
 					json& playerData = this->data["players"][uniqueIDStr];
-					metCount = playerData["metCount"].get<int>();
-					metCount++;
+					try
+					{
+						metCount = playerData["metCount"].get<int>();
+						metCount++;
+					}
+					catch (const std::exception& e)
+					{
+						this->gameWrapper->Toast("DejaVu Error", "Check console/log for details");
+						this->cvarManager->log(e.what());
+						LOG(INFO) << e.what();
+					}
 					playerData["metCount"] = metCount;
 					playerData["name"] = playerName;
 					playerData["updatedAt"] = dateTime;
@@ -603,7 +612,17 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 
 	LOG(INFO) << "adding player: " << player.GetPlayerName().ToString();
 
-	int metCount = this->data["players"][uniqueIDStr]["metCount"].get<int>();
+	int metCount = 0;
+	try
+	{
+		metCount = this->data["players"][uniqueIDStr]["metCount"].get<int>();
+	}
+	catch (const std::exception& e)
+	{
+		this->gameWrapper->Toast("DejaVu Error", "Check console/log for details");
+		this->cvarManager->log(e.what());
+		LOG(INFO) << e.what();
+	}
 	bool sameTeam = theirTeamNum == myTeamNum;
 	Record record = GetRecord(uniqueIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
@@ -742,7 +761,19 @@ Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
 		return { 0, 0 };
 	json recordJson = data[std::to_string(playlist)]["records"];
 	if (recordJson.contains(sideStr))
-		return recordJson[sideStr].get<Record>();
+	{
+		try
+		{
+			return recordJson[sideStr].get<Record>();
+		}
+		catch (const std::exception& e)
+		{
+			this->gameWrapper->Toast("DejaVu Error", "Check console/log for details");
+			this->cvarManager->log(e.what());
+			LOG(INFO) << e.what();
+			return { 0, 0 };
+		}
+	}
 	return { 0, 0 };
 }
 
@@ -866,8 +897,8 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 
 	int yOffset = 3;
 
-	int blueSize = this->blueTeamRenderData.size();
-	int orangeSize = this->orangeTeamRenderData.size();
+	int blueSize = (int)this->blueTeamRenderData.size();
+	int orangeSize = (int)this->orangeTeamRenderData.size();
 
 	bool renderPlayerBlue = false;
 	bool renderPlayerOrange = false;
@@ -897,17 +928,16 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 
 
 
-	float totalHeight = (blueSize + orangeSize) * spacing + padding.Y * 4 + yOffset;
+	int totalHeight = (blueSize + orangeSize) * spacing + padding.Y * 4 + yOffset;
 
-	float minWidth = 200;
-	float height = blueSize * spacing + padding.Y * 2;
+	int height = blueSize * spacing + padding.Y * 2;
 
-	float width = ((size.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
+	int width = (int)((size.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
 
-	float maxX = size.X - width;
-	float maxY = size.Y - totalHeight;
+	int maxX = size.X - width;
+	int maxY = size.Y - totalHeight;
 
-	Rect rect{(*this->xPos * maxX), (*this->yPos * maxY), width, height};
+	Rect rect{(int)(*this->xPos * maxX), (int)(*this->yPos * maxY), width, height};
 	RenderUI(canvas, rect, this->blueTeamRenderData, renderPlayerBlue);
 	rect.Y += rect.Height + yOffset;
 	height = orangeSize * spacing + padding.Y * 2;
@@ -924,23 +954,23 @@ Rect DejaVu::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<Render
 
 	if (*this->enabledBackground)
 	{
-		canvas.SetColor(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, 255 * alphaVal);
+		canvas.SetColor(*this->backgroundColorR, *this->backgroundColorG, *this->backgroundColorB, (char)(255 * alphaVal));
 		canvas.DrawRect(Vector2{ area.X, area.Y }, { area.X + area.Width, area.Y + area.Height });
 	}
 
 	int yPos = area.Y + padding.Y;
-	canvas.SetColor(*this->textColorR, *this->textColorG, *this->textColorB, 255 * alphaVal);
+	canvas.SetColor(*this->textColorR, *this->textColorG, *this->textColorB, (char)(255 * alphaVal));
 
 	if (!renderPlayer && renderData.size() == 0)
 	{
 		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString("Waiting...", *this->scale, *this->scale);
+		canvas.DrawString("Waiting...", (float)*this->scale, (float)*this->scale);
 		return area;
 	}
 
 	if (renderPlayer) {
 		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString("You", *this->scale, *this->scale);
+		canvas.DrawString("You", (float)*this->scale, (float)*this->scale);
 		yPos += spacing;
 	}
 
@@ -974,16 +1004,16 @@ Rect DejaVu::RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<Render
 		if (!*this->showMetCount && playerRenderData.metCount > 1 && (record.wins == 0 && record.losses == 0))
 			playerName += "*";
 		canvas.SetPosition(Vector2{ area.X + padding.X, yPos });
-		canvas.DrawString(playerName, *this->scale, *this->scale);
+		canvas.DrawString(playerName, (float)*this->scale, (float)*this->scale);
 
 		if (*this->showMetCount) {
 			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(std::to_string(playerRenderData.metCount)), yPos });
-			canvas.DrawString(std::to_string(playerRenderData.metCount), *this->scale, *this->scale);
+			canvas.DrawString(std::to_string(playerRenderData.metCount), (float)*this->scale, (float)*this->scale);
 		}
 		else {
 			std::string recordStr = std::to_string(record.wins) + ":" + std::to_string(record.losses);
 			canvas.SetPosition(Vector2{ area.X + area.Width - padding.X - *this->scale * Canvas::GetStringWidth(recordStr), yPos });
-			canvas.DrawString(recordStr, *this->scale, *this->scale);
+			canvas.DrawString(recordStr, (float)*this->scale, (float)*this->scale);
 		}
 
 		yPos += spacing;

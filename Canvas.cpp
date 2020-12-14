@@ -41,7 +41,7 @@ int Canvas::GetStringWidth(std::string str)
 
 void Canvas::SetColor(Color color)
 {
-	SetColor(color, 255);
+	SetColor(color, (char)255);
 }
 
 void Canvas::SetColor(Color color, char alpha)
@@ -178,7 +178,7 @@ void Canvas::BeginTable(std::initializer_list<CanvasTableOptions> columns)
 {
 	CHECK_CTX;
 	assert(columns.size() >= 1);
-	GCanvas->tableContext.totalCols = columns.size();
+	GCanvas->tableContext.totalCols = (int)columns.size();
 	GCanvas->tableContext.rows.clear();
 	GCanvas->tableContext.rows.reserve(columns.size());
 	GCanvas->tableContext.columnOptions = columns;
@@ -210,7 +210,7 @@ void Canvas::EndTable()
 	int totalWidth = std::accumulate(colSizes.begin(), colSizes.end(), 0);
 
 	int maxX = pos.X + totalWidth;
-	int maxY = pos.Y + (GetCharHeight() + 2) * GCanvas->tableContext.rows.size();
+	int maxY = pos.Y + (GetCharHeight() + 2) * (int)GCanvas->tableContext.rows.size();
 
 	// Draw background
 	SetColor(COLOR_BLACK);

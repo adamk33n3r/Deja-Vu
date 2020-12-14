@@ -10,9 +10,9 @@
 
 namespace Canvas {
 	enum Color : unsigned int {
-		COLOR_WHITE = MAKE_COLOR(255, 255, 255),
+		COLOR_WHITE = MAKE_COLOR((unsigned)255, 255, 255),
 		COLOR_BLACK = MAKE_COLOR(0, 0, 0),
-		COLOR_RED = MAKE_COLOR(255, 0, 0),
+		COLOR_RED = MAKE_COLOR((unsigned)255, 0, 0),
 		COLOR_GREEN = MAKE_COLOR(0, 255, 0),
 		COLOR_BLUE = MAKE_COLOR(0, 0, 255),
 	};
