@@ -19,35 +19,48 @@
 
 using json = nlohmann::json;
 
+#define PLAYLISTS \
+X(NONE, -1) \
+X(Duel, 1) \
+X(Doubles, 2) \
+X(Standard, 3) \
+X(Chaos, 4) \
+X(PrivateMatch, 6) \
+X(OfflineSeason, 7) \
+X(OfflineSplitscreen, 8) \
+X(Training, 9) \
+X(RankedDuel, 10) \
+X(RankedDoubles, 11) \
+X(RankedSoloStandard, 12) \
+X(RankedStandard, 13) \
+X(MutatorMashup, 14) \
+X(SnowDay, 15) \
+X(RocketLabs, 16) \
+X(Hoops, 17) \
+X(Rumble, 18) \
+X(Workshop, 19) \
+X(TrainingEditor, 20) \
+X(CustomTraining, 21) \
+X(Tournament, 22) \
+X(Dropshot, 23) \
+X(RankedHoops, 27) \
+X(RankedRumble, 28) \
+X(RankedDropshot, 29) \
+X(RankedSnowDay, 30)
+
+#define X(playlist, id) playlist = id,
 enum class Playlist
 {
-	Duel = 1,
-	Doubles = 2,
-	Standard = 3,
-	Chaos = 4,
-	PrivateMatch = 6,
-	OfflineSeason = 7,
-	OfflineSplitscreen = 8,
-	Training = 9,
-	RankedDuel = 10,
-	RankedDoubles = 11,
-	RankedSoloStandard = 12,
-	RankedStandard = 13,
-	MutatorMashup = 14,
-	SnowDay = 15,
-	RocketLabs = 16,
-	Hoops = 17,
-	Rumble = 18,
-	Workshop = 19,
-	TrainingEditor = 20,
-	CustomTraining = 21,
-	Tournament = 22,
-	Dropshot = 23,
-	RankedHoops = 27,
-	RankedRumble = 28,
-	RankedDropshot = 29,
-	RankedSnowDay = 30
+	PLAYLISTS
 };
+#undef X
+
+#define X(playlist, id) { Playlist::playlist, #playlist },
+static std::map<Playlist, std::string> PlaylistNames
+{
+	PLAYLISTS
+};
+#undef X
 
 struct PlaylistFilter {
 	std::string name;
@@ -175,8 +188,9 @@ private:
 	void WriteData();
 	void Reset();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
-	Record GetRecord(UniqueIDWrapper steamID, int playlist, Side side);
-	Record GetRecord(std::string steamID, int playlist, Side side);
+	Record GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side);
+	Record GetRecord(std::string uniqueID, Playlist playlist, Side side);
+	Record GetRecord(std::string uniqueID, int playlist, Side side);
 	void SetRecord();
 	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer);
 	void AddPlayerToRenderData(PriWrapper player);

@@ -743,7 +743,12 @@ Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side)
 	return GetRecord(uniqueID.str(), playlist, side);
 }
 
-Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
+Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
+{
+	return GetRecord(uniqueID, static_cast<int>(playlist), side);
+}
+
+Record DejaVu::GetRecord(std::string uniqueID, int playlist, Side side)
 {
 	std::string sideStr;
 	if (side == Side::Same)
@@ -753,10 +758,24 @@ Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
 	else
 		return { 0, 0 };
 
-	json playerData = this->data["players"][steamID];
+	json playerData = this->data["players"][uniqueID];
 	if (!playerData.contains("playlistData"))
 		return { 0, 0 };
 	json data = playerData["playlistData"];
+
+	if (playlist == -1)
+	{
+		Record combinedRecord{};
+		for (auto it = data.begin(); it != data.end(); ++it)
+		{
+			auto temp = GetRecord(uniqueID, std::stoi(it.key()), side);
+			combinedRecord.wins += temp.wins;
+			combinedRecord.losses += temp.losses;
+		}
+
+		return combinedRecord;
+	}
+
 	if (!data.contains(std::to_string(playlist)))
 		return { 0, 0 };
 	json recordJson = data[std::to_string(playlist)]["records"];

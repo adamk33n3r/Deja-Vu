@@ -36,34 +36,28 @@ void DejaVu::Render()
 	static const char* items[]{"Apple", "Banana", "Orange"};
 	static int selected = -1;
 
+	static Playlist selectedPlaylist = Playlist::NONE;
+
 	//ImGui::ListBox("Fruit", &this->gui_selectedPlaylist, this->playlists, 2);
 	//ImGui::ListBox("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 	//ImGui::Combo("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 
-	static PlaylistFilter playlistFilters[]{
-		{"Duel", 1},
-		{"Doubles", 2},
-		{"Standard", 3},
-	};
-
-	const char* preview = (selected >= 0) ? playlistFilters[selected].name.c_str() : "Select...";
+	const char* preview = (selected >= 0) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
 
 	if (ImGui::BeginCombo("Playlist Filter", preview))
 	{
-		if (ImGui::Selectable("None", selected == -1))
-			selected = -1;
-		for (int i = 0; i < IM_ARRAYSIZE(playlistFilters); ++i) {
-			bool isSelected = selected == i;
-			if (ImGui::Selectable(playlistFilters[i].name.c_str(), isSelected))
-				selected = i;
+		for (auto it = PlaylistNames.begin(); it != PlaylistNames.end(); ++it)
+		{
+			bool isSelected = selectedPlaylist == it->first;
+			if (ImGui::Selectable(it->second.c_str(), isSelected))
+				selectedPlaylist = it->first;
 			if (isSelected)
 				ImGui::SetItemDefaultFocus();
 		}
 		ImGui::EndCombo();
 	}
 
-	ImGui::BeginChild("#LoadedPluginsTab", ImVec2(55 + 250 + 55 + 250, -ImGui::GetFrameHeightWithSpacing()));
-
+	ImGui::BeginChild("#DejaVuDataDisplay", ImVec2(55 + 250 + 55 + 250, -ImGui::GetFrameHeightWithSpacing()));
 
 	//ImGui::ListBoxHeader()
 	ImGui::Columns(4, "dejavu_stats"); // 4-ways, with border
@@ -78,22 +72,22 @@ void DejaVu::Render()
 	ImGui::Text("Total Record Against"); ImGui::NextColumn();
 	ImGui::Separator();
 
-	int selectedPlaylistID = playlistFilters[selected].playlistID;
-	std::string playlistIDStr = std::to_string(selectedPlaylistID);
+	std::string selectedPlaylistIDStr = std::to_string(static_cast<int>(selectedPlaylist));
+
 	int i = 0;
-	for (auto player : this->data["players"].items())
+	for (auto& player : this->data["players"].items())
 	{
-		std::string steamID = player.key();
+		std::string uniqueID = player.key();
 		json::value_type playerData = player.value();
 		int metCount = playerData["metCount"].get<int>();
 		std::string name = playerData["name"].get<std::string>();
 
 		// Skip if doesn't have selected playlist data
-		if (!playerData["playlistData"].contains(playlistIDStr) || playerData["playlistData"][playlistIDStr]["records"].is_null())
+		if (selectedPlaylist != Playlist::NONE && (!playerData["playlistData"].contains(selectedPlaylistIDStr) || playerData["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
 			continue;
 
-		auto sameRecord = GetRecord(steamID, selectedPlaylistID, Side::Same);
-		auto otherRecord = GetRecord(steamID, selectedPlaylistID, Side::Other);
+		auto sameRecord = GetRecord(uniqueID, selectedPlaylist, Side::Same);
+		auto otherRecord = GetRecord(uniqueID, selectedPlaylist, Side::Other);
 
 		ImGui::Text(name.c_str()); ImGui::NextColumn();
 		ImGui::Text(std::to_string(metCount).c_str()); ImGui::NextColumn();
