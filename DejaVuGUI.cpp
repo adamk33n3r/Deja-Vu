@@ -78,6 +78,8 @@ void DejaVu::Render()
 	ImGui::Text("Total Record Against"); ImGui::NextColumn();
 	ImGui::Separator();
 
+	int selectedPlaylistID = playlistFilters[selected].playlistID;
+	std::string playlistIDStr = std::to_string(selectedPlaylistID);
 	int i = 0;
 	for (auto player : this->data["players"].items())
 	{
@@ -87,11 +89,11 @@ void DejaVu::Render()
 		std::string name = playerData["name"].get<std::string>();
 
 		// Skip if doesn't have selected playlist data
-		if (!playerData["playlistData"].contains(std::to_string(27)) || playerData["playlistData"]["27"]["records"].is_null())
+		if (!playerData["playlistData"].contains(playlistIDStr) || playerData["playlistData"][playlistIDStr]["records"].is_null())
 			continue;
 
-		auto sameRecord = GetRecord(steamID, 27, Side::Same);
-		auto otherRecord = GetRecord(steamID, 27, Side::Other);
+		auto sameRecord = GetRecord(steamID, selectedPlaylistID, Side::Same);
+		auto otherRecord = GetRecord(steamID, selectedPlaylistID, Side::Other);
 
 		ImGui::Text(name.c_str()); ImGui::NextColumn();
 		ImGui::Text(std::to_string(metCount).c_str()); ImGui::NextColumn();
