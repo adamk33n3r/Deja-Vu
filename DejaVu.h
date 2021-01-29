@@ -1,7 +1,7 @@
 #pragma once
 #pragma comment(lib, "BakkesMod.lib")
 
-#define ENABLE_GUI 0
+#define ENABLE_GUI 1
 
 #define _HAS_STD_BYTE 0
 #include "bakkesmod/plugin/bakkesmodplugin.h"
