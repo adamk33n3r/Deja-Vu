@@ -17,7 +17,6 @@ void DejaVu::Render()
 
 	ImGuiWindowFlags windowFlags = 0
 		| ImGuiWindowFlags_MenuBar
-		| ImGuiWindowFlags_ResizeFromAnySide
 		//| ImGuiWindowFlags_NoCollapse
 	;
 
@@ -139,6 +138,7 @@ std::string DejaVu::GetMenuTitle()
 void DejaVu::SetImGuiContext(uintptr_t ctx)
 {
 	ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
+	ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
 }
 
 bool DejaVu::ShouldBlockInput()
