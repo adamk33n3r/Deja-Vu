@@ -805,7 +805,7 @@ void DejaVu::SetRecord()
 	{
 		auto player = players.Get(i);
 		std::string uniqueIDStr = player.GetUniqueIdWrapper().str();
-		if (uniqueIDStr == myID.str())
+		if (uniqueIDStr == myID.str() || uniqueIDStr == "0")
 			continue;
 
 		bool sameTeam = player.GetTeamNum() == localPRI.GetTeamNum();
