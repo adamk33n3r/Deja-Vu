@@ -5,7 +5,7 @@
 
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 
-#define DEV 0
+#define DEV 1
 
 /**
  * TODO
@@ -240,8 +240,14 @@ void DejaVu::onLoad()
 	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&DejaVu::HandleGameLeave, this, std::placeholders::_1));
 	// Function TAGame.GFxHUD_TA.HandlePenaltyChanged
 
-	this->gameWrapper->UnregisterDrawables();
-	this->gameWrapper->RegisterDrawable(bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GFxData_GameEvent_TA.OnOpenScoreboard", std::bind(&DejaVu::OpenScoreboard, this, std::placeholders::_1));
+
+	this->gameWrapper->HookEvent("Function TAGame.GFxData_GameEvent_TA.OnCloseScoreboard", std::bind(&DejaVu::CloseScoreboard, this, std::placeholders::_1));
+
+	//249-250 are the originals. restore them and delete 243-248 if these guesses don't work
+
+	//this->gameWrapper->UnregisterDrawables();
+	//this->gameWrapper->RegisterDrawable(bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
 
 	/*
 	HookEventWithCaller<ServerWrapper>("FUNCTION", bind(&CLASSNAME::FUNCTIONNAME, this, placeholders::_1, 2, 3);
@@ -309,6 +315,25 @@ void DejaVu::onLoad()
 #if DEV
 	this->cvarManager->executeCommand("exec tmp.cfg");
 #endif
+}
+
+//if plugin is loaded, in an online game, and not currently showing then...
+void DejaVu::OpenScoreboard(std::string eventName)
+{
+	if DejaVu::IsInRealGame()
+	{
+	gameWrapper->RegisterDrawable(std::bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
+	}
+
+}
+
+//if the scoreboard is not open then...
+void DejaVu::CloseScoreboard(std::string eventName)
+{
+	if DejaVu::IsInRealGame()  //this is a bool value, so how do I just say if this bool = 1?
+	{
+		gameWrapper->UnregisterDrawables();
+	}
 }
 
 void DejaVu::onUnload()
@@ -743,12 +768,7 @@ Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side)
 	return GetRecord(uniqueID.str(), playlist, side);
 }
 
-Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
-{
-	return GetRecord(uniqueID, static_cast<int>(playlist), side);
-}
-
-Record DejaVu::GetRecord(std::string uniqueID, int playlist, Side side)
+Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
 {
 	std::string sideStr;
 	if (side == Side::Same)
@@ -758,24 +778,10 @@ Record DejaVu::GetRecord(std::string uniqueID, int playlist, Side side)
 	else
 		return { 0, 0 };
 
-	json playerData = this->data["players"][uniqueID];
+	json playerData = this->data["players"][steamID];
 	if (!playerData.contains("playlistData"))
 		return { 0, 0 };
 	json data = playerData["playlistData"];
-
-	if (playlist == -1)
-	{
-		Record combinedRecord{};
-		for (auto it = data.begin(); it != data.end(); ++it)
-		{
-			auto temp = GetRecord(uniqueID, std::stoi(it.key()), side);
-			combinedRecord.wins += temp.wins;
-			combinedRecord.losses += temp.losses;
-		}
-
-		return combinedRecord;
-	}
-
 	if (!data.contains(std::to_string(playlist)))
 		return { 0, 0 };
 	json recordJson = data[std::to_string(playlist)]["records"];
