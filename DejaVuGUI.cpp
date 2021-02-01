@@ -57,6 +57,9 @@ void DejaVu::Render()
 		ImGui::EndCombo();
 	}
 
+	static char nameFilter[61] = "";
+	ImGui::InputText("Name", nameFilter, IM_ARRAYSIZE(nameFilter), ImGuiInputTextFlags_AutoSelectAll);
+
 	ImGui::BeginChild("#DejaVuDataDisplay", ImVec2(55 + 250 + 55 + 250, -ImGui::GetFrameHeightWithSpacing()));
 
 	//ImGui::ListBoxHeader()
@@ -75,6 +78,7 @@ void DejaVu::Render()
 	std::string selectedPlaylistIDStr = std::to_string(static_cast<int>(selectedPlaylist));
 
 	int i = 0;
+	auto nameFilterView = std::string_view(nameFilter);
 	for (auto& player : this->data["players"].items())
 	{
 		std::string uniqueID = player.key();
@@ -84,6 +88,12 @@ void DejaVu::Render()
 
 		// Skip if doesn't have selected playlist data
 		if (selectedPlaylist != Playlist::NONE && (!playerData["playlistData"].contains(selectedPlaylistIDStr) || playerData["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
+			continue;
+
+		bool nameFound = std::search(name.begin(), name.end(), nameFilterView.begin(), nameFilterView.end(), [](char ch1, char ch2) {
+			return std::toupper(ch1) == std::toupper(ch2);
+		}) == name.end();
+		if (nameFilterView.size() > 0 && nameFound)
 			continue;
 
 		auto sameRecord = GetRecord(uniqueID, selectedPlaylist, Side::Same);
