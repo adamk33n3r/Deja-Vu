@@ -172,8 +172,8 @@ void DejaVu::onLoad()
 	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of your record", true, this->showMetCount);
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
-	RegisterCVar("cl_dejavu_toggle_with_scoreboard", "Toggle with scoreboard (instead of always on)", true, this->toggleWithScoreboard);
-	//can't get it showing yet
+	RegisterCVar("cl_dejavu_toggle_with_scoreboard", "Toggle with scoreboard (instead of always on)", false, this->toggleWithScoreboard);
+	
 	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
