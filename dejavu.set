@@ -8,6 +8,7 @@ Deja Vu
 
 9|Visual settings
 1|Enable visuals|cl_dejavu_visuals
+1|Toggle with scoreboard (instead of always on)|cl_dejavu_toggle_with_scoreboard
 
 10|cl_dejavu_visuals
 1|Toggle with scoreboard (instead of always on)|cl_dejavu_toggle_with_scoreboard
