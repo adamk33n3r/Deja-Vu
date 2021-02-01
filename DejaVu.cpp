@@ -172,7 +172,8 @@ void DejaVu::onLoad()
 	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of your record", true, this->showMetCount);
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
-
+	RegisterCVar("cl_dejavu_toggle_with_scoreboard", "Toggle with scoreboard (instead of always on)", false, this->toggleWithScoreboard);
+	
 	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
@@ -239,6 +240,9 @@ void DejaVu::onLoad()
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", std::bind(&DejaVu::HandleGameEnd, this, std::placeholders::_1));
 	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&DejaVu::HandleGameLeave, this, std::placeholders::_1));
 	// Function TAGame.GFxHUD_TA.HandlePenaltyChanged
+
+	this->gameWrapper->HookEvent("Function TAGame.GFxData_GameEvent_TA.OnOpenScoreboard", std::bind(&DejaVu::OpenScoreboard, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GFxData_GameEvent_TA.OnCloseScoreboard", std::bind(&DejaVu::CloseScoreboard, this, std::placeholders::_1));
 
 	this->gameWrapper->UnregisterDrawables();
 	this->gameWrapper->RegisterDrawable(bind(&DejaVu::RenderDrawable, this, std::placeholders::_1));
@@ -324,6 +328,18 @@ void DejaVu::onUnload()
 	if (this->isWindowOpen)
 		this->cvarManager->executeCommand("togglemenu " + GetMenuName());
 #endif
+}
+
+
+void DejaVu::OpenScoreboard(std::string eventName)
+{
+	this->isScoreboardOpen = true;
+}
+
+
+void DejaVu::CloseScoreboard(std::string eventName)
+{
+	this->isScoreboardOpen = false;
 }
 
 void DejaVu::Log(std::string msg)
@@ -885,8 +901,9 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 
 	bool inGame = IsInRealGame();
 	bool noData = this->blueTeamRenderData.size() == 0 && this->orangeTeamRenderData.size() == 0;
+	bool scoreboardIsClosedAndToggleIsOn = *this->toggleWithScoreboard && !this->isScoreboardOpen;
 	if (
-		(!*this->enabled || !*this->enabledVisuals || !inGame || noData) && !*this->enabledDebug
+		(!*this->enabled || !*this->enabledVisuals || !inGame || noData || scoreboardIsClosedAndToggleIsOn) && !*this->enabledDebug
 		)
 		return;
 

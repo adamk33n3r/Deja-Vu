@@ -102,7 +102,8 @@ public:
 	void HandleGameEnd(std::string eventName);
 	void HandleGameLeave(std::string eventName);
 	void RenderDrawable(CanvasWrapper canvas);
-
+	void OpenScoreboard(std::string eventName);
+	void CloseScoreboard(std::string eventName);
 // GUI
 
 #if ENABLE_GUI
@@ -122,6 +123,7 @@ private:
 	std::string menuTitle = "Deja Vu";
 	const char* playlists[2] = {"option 1", "option 2"};
 	bool selected1 = false;
+	bool isScoreboardOpen = false;
 
 private:
 	std::shared_ptr<bool> enabled;
@@ -129,6 +131,7 @@ private:
 	std::shared_ptr<bool> trackTeammates;
 	std::shared_ptr<bool> trackGrouped;
 	std::shared_ptr<bool> enabledVisuals;
+	std::shared_ptr<bool> toggleWithScoreboard;
 	std::shared_ptr<bool> enabledDebug;
 	std::shared_ptr<bool> enabledLog;
 	std::shared_ptr<bool> showMetCount;
