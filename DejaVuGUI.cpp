@@ -1,5 +1,7 @@
 #include "DejaVu.h"
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
+#include "vendor/imgui/imgui.h"
+#include "vendor/imgui/imgui_stdlib.h"
 
 #if ENABLE_GUI
 void DejaVu::Render()
@@ -56,15 +58,13 @@ void DejaVu::Render()
 		ImGui::EndCombo();
 	}
 
-	static char nameFilter[61] = "";
+	static char nameFilter[65] = "";
 	ImGui::InputText("Name", nameFilter, IM_ARRAYSIZE(nameFilter), ImGuiInputTextFlags_AutoSelectAll);
 
-	//commented out line 60 to test scrolling option 
-	//ImGui::BeginChild("#DejaVuDataDisplay", ImVec2(55 + 250 + 55 + 250 + 55, -ImGui::GetFrameHeightWithSpacing()));
-	ImGui::BeginChild("##ScrollingRegion", ImVec2(0, ImGui::GetFontSize() * 20), false, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+	ImGui::BeginChild("#DejaVuDataDisplay", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
 
 	//ImGui::ListBoxHeader()
-	ImGui::Columns(5, "dejavu_stats"); // 5-ways, with border
+	ImGui::Columns(5, "dejavu_stats");
 	//ImGui::SetColumnWidth(0, 55);
 	//ImGui::SetColumnWidth(1, 250);
 	//ImGui::SetColumnWidth(2, 55);
@@ -75,12 +75,12 @@ void DejaVu::Render()
 	ImGui::Text("Met Count"); ImGui::NextColumn();
 	ImGui::Text("Total Record With"); ImGui::NextColumn();
 	ImGui::Text("Total Record Against"); ImGui::NextColumn();
-	ImGui::Text("Player Notes"); ImGui::NextColumn();
+	ImGui::Text("Player Note"); ImGui::NextColumn();
 	ImGui::Separator();
 
 	std::string selectedPlaylistIDStr = std::to_string(static_cast<int>(selectedPlaylist));
 
-	int i = 0;
+	static std::string playersNoteToEdit = "";
 	auto nameFilterView = std::string_view(nameFilter);
 	for (auto& player : this->data["players"].items())
 	{
@@ -110,12 +110,60 @@ void DejaVu::Render()
 		std::ostringstream otherRecordFormatted;
 		otherRecordFormatted << otherRecord.wins << ":" << otherRecord.losses;
 		ImGui::Text(otherRecordFormatted.str().c_str()); ImGui::NextColumn();
-		std::vector<std::string> playerNotes(this->data.size());
-		ImGui::InputText((std::string("##input text") + std::to_string(i)).c_str(), str1, IM_ARRAYSIZE(str1)); ImGui::NextColumn();
+
+		float buttonPos = ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x;
+		if (!playerData.contains("note"))
+			playerData["note"] = "";
+		float buttonWidth = 2 * ImGui::GetStyle().FramePadding.x + ImGui::CalcTextSize("Edit").x;
+		ImGui::BeginChild((std::string("#note") + uniqueID).c_str(), ImVec2(ImGui::GetColumnWidth() - buttonWidth - 2 * ImGui::GetStyle().ItemSpacing.x, ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_NoScrollbar);
+		ImGui::TextWrapped(playerData["note"].get<std::string>().c_str());
+		ImGui::EndChild();
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(buttonPos - buttonWidth);
+		if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
+		{
+			ImGui::OpenPopup("Edit note");
+			playersNoteToEdit = uniqueID;
+		}
+		ImGui::NextColumn();
 		ImGui::Separator();
-		i++;
-		//"create them beforehand, and save them, and reuse them...I believe in you" (when window is opened, create
 	}
+
+
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 3, ImGui::GetIO().DisplaySize.y / 3), ImGuiCond_Appearing);
+
+	if (ImGui::BeginPopupModal("Edit note"))
+	{
+		if (playersNoteToEdit.empty())
+		{
+			ImGui::CloseCurrentPopup();
+		}
+		else
+		{
+			json::value_type playerData = this->data["players"][playersNoteToEdit];
+			if (!playerData.contains("note"))
+				playerData["note"] = "";
+			auto playerNote = playerData["note"].get_ptr<std::string*>();
+
+			ImVec2 textSize(
+				ImGui::GetWindowWidth() - 2 * ImGui::GetStyle().WindowPadding.x,
+				ImGui::GetWindowHeight() - 2 * ImGui::GetStyle().WindowPadding.y - ImGui::GetTextLineHeightWithSpacing() - 4 * ImGui::GetStyle().FramePadding.y - 4 * ImGui::GetStyle().ItemSpacing.y
+			);
+			if (ImGui::InputTextMultiline("##note", playerNote, textSize))
+				this->data["players"][playersNoteToEdit]["note"] = *playerNote;
+			//if (ImGui::IsAnyWindowFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0))
+			if (ImGui::IsWindowAppearing())
+				ImGui::SetKeyboardFocusHere();
+
+			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
+			if (ImGui::Button("OK", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+				ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+
 
 	//if (ImGui::BeginMenuBar())
 	//{
@@ -165,11 +213,11 @@ void DejaVu::OnOpen()
 {
 	this->isWindowOpen = true;
 	this->cvarManager->getCvar("cl_dejavu_log").setValue(true);
-	this->playerNotes.resize(this->data.size());
 }
 
 void DejaVu::OnClose()
 {
 	this->isWindowOpen = false;
+	WriteData();
 }
 #endif
