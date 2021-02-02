@@ -34,7 +34,6 @@ void DejaVu::Render()
 
 
 	static const char* items[]{"Apple", "Banana", "Orange"};
-	static int selected = -1;
 
 	static Playlist selectedPlaylist = Playlist::NONE;
 
@@ -42,7 +41,7 @@ void DejaVu::Render()
 	//ImGui::ListBox("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 	//ImGui::Combo("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 
-	const char* preview = (selected >= 0) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
+	const char* preview = (selectedPlaylist != Playlist::NONE) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
 
 	if (ImGui::BeginCombo("Playlist Filter", preview))
 	{
