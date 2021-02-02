@@ -11,7 +11,6 @@
 #include <filesystem>
 #if ENABLE_GUI
 #include "bakkesmod/plugin/pluginwindow.h"
-#include "vendor/imgui/imgui.h"
 #endif
 #include "vendor/json.hpp"
 #include "Canvas.h"
@@ -117,6 +116,7 @@ public:
 	void RenderDrawable(CanvasWrapper canvas);
 	void OpenScoreboard(std::string eventName);
 	void CloseScoreboard(std::string eventName);
+
 // GUI
 
 #if ENABLE_GUI
@@ -139,6 +139,7 @@ private:
 	bool isScoreboardOpen = false;
 
 private:
+#pragma region cvars
 	std::shared_ptr<bool> enabled;
 	std::shared_ptr<bool> trackOpponents;
 	std::shared_ptr<bool> trackTeammates;
@@ -163,6 +164,7 @@ private:
 	std::shared_ptr<int> backgroundColorR;
 	std::shared_ptr<int> backgroundColorG;
 	std::shared_ptr<int> backgroundColorB;
+#pragma endregion cvars
 
 	json data;
 	MMRWrapper mmrWrapper;
@@ -172,7 +174,6 @@ private:
 	std::map<std::string, std::set<std::string>> matchPRIsMetList;
 	std::vector<RenderData> blueTeamRenderData;
 	std::vector<RenderData> orangeTeamRenderData;
-	std::vector<std::string> playerNotes;
 
 	inline static auto mainFile = "player_counter.json";
 	inline static auto tmpFile  = "player_counter.json.tmp";
