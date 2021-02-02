@@ -59,19 +59,23 @@ void DejaVu::Render()
 	static char nameFilter[61] = "";
 	ImGui::InputText("Name", nameFilter, IM_ARRAYSIZE(nameFilter), ImGuiInputTextFlags_AutoSelectAll);
 
-	ImGui::BeginChild("#DejaVuDataDisplay", ImVec2(55 + 250 + 55 + 250, -ImGui::GetFrameHeightWithSpacing()));
+	//commented out line 60 to test scrolling option 
+	//ImGui::BeginChild("#DejaVuDataDisplay", ImVec2(55 + 250 + 55 + 250 + 55, -ImGui::GetFrameHeightWithSpacing()));
+	ImGui::BeginChild("##ScrollingRegion", ImVec2(0, ImGui::GetFontSize() * 20), false, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
 	//ImGui::ListBoxHeader()
-	ImGui::Columns(4, "dejavu_stats"); // 4-ways, with border
+	ImGui::Columns(5, "dejavu_stats"); // 5-ways, with border
 	//ImGui::SetColumnWidth(0, 55);
 	//ImGui::SetColumnWidth(1, 250);
 	//ImGui::SetColumnWidth(2, 55);
 	//ImGui::SetColumnWidth(3, 250);
+	//ImGui::SetColumnWidth(4, 55);
 	ImGui::Separator();
 	ImGui::Text("Name"); ImGui::NextColumn();
 	ImGui::Text("Met Count"); ImGui::NextColumn();
 	ImGui::Text("Total Record With"); ImGui::NextColumn();
 	ImGui::Text("Total Record Against"); ImGui::NextColumn();
+	ImGui::Text("Player Notes"); ImGui::NextColumn();
 	ImGui::Separator();
 
 	std::string selectedPlaylistIDStr = std::to_string(static_cast<int>(selectedPlaylist));
@@ -106,10 +110,11 @@ void DejaVu::Render()
 		std::ostringstream otherRecordFormatted;
 		otherRecordFormatted << otherRecord.wins << ":" << otherRecord.losses;
 		ImGui::Text(otherRecordFormatted.str().c_str()); ImGui::NextColumn();
+		std::vector<std::string> playerNotes(this->data.size());
+		ImGui::InputText((std::string("##input text") + std::to_string(i)).c_str(), str1, IM_ARRAYSIZE(str1)); ImGui::NextColumn();
 		ImGui::Separator();
 		i++;
-		if (i > 10)
-			break;
+		//"create them beforehand, and save them, and reuse them...I believe in you" (when window is opened, create
 	}
 
 	//if (ImGui::BeginMenuBar())
@@ -160,6 +165,7 @@ void DejaVu::OnOpen()
 {
 	this->isWindowOpen = true;
 	this->cvarManager->getCvar("cl_dejavu_log").setValue(true);
+	this->playerNotes.resize(this->data.size());
 }
 
 void DejaVu::OnClose()
