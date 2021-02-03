@@ -174,6 +174,7 @@ private:
 	std::map<std::string, std::set<std::string>> matchPRIsMetList;
 	std::vector<RenderData> blueTeamRenderData;
 	std::vector<RenderData> orangeTeamRenderData;
+	std::vector<std::string> playerIDsToDisplay;
 
 	inline static auto mainFile = "player_counter.json";
 	inline static auto tmpFile  = "player_counter.json.tmp";
