@@ -9,12 +9,16 @@
 #define MAKE_COLOR(r, g, b) (r << 24) | (g << 16) | (b << 8)
 
 namespace Canvas {
-	enum Color : unsigned int {
-		COLOR_WHITE = MAKE_COLOR((unsigned)255, 255, 255),
-		COLOR_BLACK = MAKE_COLOR(0, 0, 0),
-		COLOR_RED = MAKE_COLOR((unsigned)255, 0, 0),
-		COLOR_GREEN = MAKE_COLOR(0, 255, 0),
-		COLOR_BLUE = MAKE_COLOR(0, 0, 255),
+	struct Color {
+		unsigned int r = 0;
+		unsigned int g = 255;
+		unsigned int b = 0;
+
+		const static Color WHITE;
+		const static Color BLACK;
+		const static Color RED;
+		const static Color GREEN;
+		const static Color BLUE;
 	};
 
 	enum class Alignment {
@@ -23,16 +27,28 @@ namespace Canvas {
 		RIGHT = 1,
 	};
 
-	struct CanvasTableOptions {
+	struct CanvasColumnOptions {
 		Alignment alignment = Alignment::LEFT;
+		int width = 0; // 0 for auto
+	};
+
+	struct CanvasTableOptions {
+		Color textColor = Color::WHITE;
+		bool background = true;
+		Color backgroundColor = Color::BLACK;
+		bool borders = false;
+		Color borderColor = Color::WHITE;
+		int width = 0; // 0 for auto
+		int padding = 5;
 	};
 
 	struct CanvasTableContext {
 		int totalCols = 0;
 		//int currentColumn = 0;
-		int padding = 5;
+		CanvasTableOptions tableOptions;
+		std::vector<CanvasColumnOptions> columnOptions;
 		std::vector<std::vector<std::string>> rows;
-		std::vector<CanvasTableOptions> columnOptions;
+		int verticalPadding = 3;
 	};
 
 	struct CanvasContext {
@@ -41,6 +57,7 @@ namespace Canvas {
 		unsigned int characterWidths[256];
 		unsigned int characterHeight = 14 /* top padding */ + 2;
 		unsigned int scale = 1;
+		char alpha = (char)255;
 		CanvasTableContext tableContext;
 
 		CanvasContext() : canvas(NULL) {
@@ -153,6 +170,7 @@ namespace Canvas {
 	};
 
 	void SetContext(CanvasWrapper canvas);
+	bool IsContextSet();
 	int GetCharHeight();
 	int GetCharWidth(unsigned char ch);
 	int GetStringWidth(std::string str);
@@ -183,12 +201,18 @@ namespace Canvas {
 	Vector2F ProjectF(Vector location);
 
 	// Helpers
+	void SetGlobalAlpha(char alpha);
 	void SetColor(Color color);
 	void SetColor(Color color, char alpha);
 	void SetScale(unsigned int scale);
-	void BeginTable(std::initializer_list<CanvasTableOptions> columns);
+	void SetPosition(int x, int y);
+	void SetPosition(float x, float y);
+	void DrawRect(Vector2 size);
+	void BeginTable(CanvasTableOptions tableOptions = {});
+	void Columns(std::vector<CanvasColumnOptions> columns);
 	void Row(const std::vector<std::string>& rowData);
 	void EndTable();
+	int GetTableRowHeight();
 
 }
 

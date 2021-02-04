@@ -181,7 +181,7 @@ private:
 	Record GetRecord(UniqueIDWrapper steamID, int playlist, Side side);
 	Record GetRecord(std::string steamID, int playlist, Side side);
 	void SetRecord();
-	Rect RenderUI(CanvasWrapper& canvas, Rect area, const std::vector<RenderData>& renderData, bool renderPlayer);
+	void RenderUI(const std::vector<RenderData>& renderData, const Canvas::CanvasTableOptions& tableOptions, const std::vector<Canvas::CanvasColumnOptions>& columnOptions, const bool renderPlayer);
 	void AddPlayerToRenderData(PriWrapper player);
 	void RemovePlayerFromRenderData(PriWrapper player);
 	bool IsInRealGame();
