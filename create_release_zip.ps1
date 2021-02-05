@@ -1,10 +1,10 @@
-Set-Location C:\Users\adamg\GitHub\Deja-Vu
+Set-Location $PSScriptRoot
 
 $matchInfo = Select-String -Path .\DejaVu.cpp -Pattern 'BAKKESMOD_PLUGIN\(DejaVu, "Deja Vu", "(.*)",'
 $versionString = $matchInfo.Matches.Groups[1].Value
 Write-Output $versionString
 
-$buildDir = 'C:\Users\adamg\GitHub\Deja-Vu\zipDir'
+$buildDir = (Get-Location).ToString() + '\zipDir'
 $zipFile = "$buildDir\..\DejaVu - $versionString.zip"
 
 if (Test-Path $zipFile -PathType Leaf)
