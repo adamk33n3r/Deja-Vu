@@ -19,6 +19,18 @@ void DejaVu::Render()
 		ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y / 4), ImGuiCond_Appearing);
 		if (ImGui::BeginPopupModal("LaunchQuickNoteModal"))
 		{
+			ServerWrapper server = this->GetCurrentServer();
+			LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
+			if (server.IsNull())
+				return;
+			if (server.IsPlayingPrivate())
+				return;
+			std::string curMatchGUID = server.GetMatchGUID();
+			LOG(INFO) << "Current Match GUID: " << curMatchGUID;
+			// Too early I guess, so bail since we need the match guid for tracking
+			if (curMatchGUID == "No worldInfo")
+				return;
+			
 			float reserveHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
 			ImGui::BeginChild("#dejavu_quick_note", ImVec2(0, -reserveHeight));
 			ImGui::Columns(2, "Quick Note Edit");
@@ -30,33 +42,34 @@ void DejaVu::Render()
 			ImGui::Separator();
 
 			// Ben: Make this a loop of this->matchPRIsMetList[curMatchGUID]
-			std::string uniqueID = "0";
-			auto& playerData = this->data["players"][uniqueID];
-			ImGui::Text(playerData["name"].get<std::string>().c_str()); ImGui::NextColumn();
-
-			float buttonPos = ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x;
-			if (!playerData.contains("note"))
-				playerData["note"] = "";
-			float buttonWidth = 2 * ImGui::GetStyle().FramePadding.x + ImGui::CalcTextSize("Edit").x;
-			ImGui::BeginChild((std::string("#note") + uniqueID).c_str(), ImVec2(ImGui::GetColumnWidth() - buttonWidth - 2 * ImGui::GetStyle().ItemSpacing.x, ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_NoScrollbar);
-			ImGui::TextWrapped(playerData["note"].get<std::string>().c_str());
-			ImGui::EndChild();
-			ImGui::SameLine();
-			ImGui::SetCursorPosX(buttonPos - buttonWidth);
-			if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
+			for (const auto& uniqueID : this->matchPRIsMetList[curMatchGUID])
 			{
-				ImGui::OpenPopup("Edit note");
-				this->playersNoteToEdit = uniqueID;
+				auto& playerData = this->data["players"][uniqueID];
+				ImGui::Text(playerData["name"].get<std::string>().c_str()); ImGui::NextColumn();
+
+				float buttonPos = ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x;
+				if (!playerData.contains("note"))
+					playerData["note"] = "";
+				float buttonWidth = 2 * ImGui::GetStyle().FramePadding.x + ImGui::CalcTextSize("Edit").x;
+				ImGui::BeginChild((std::string("#note") + uniqueID).c_str(), ImVec2(ImGui::GetColumnWidth() - buttonWidth - 2 * ImGui::GetStyle().ItemSpacing.x, ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_NoScrollbar);
+				ImGui::TextWrapped(playerData["note"].get<std::string>().c_str());
+				ImGui::EndChild();
+				ImGui::SameLine();
+				ImGui::SetCursorPosX(buttonPos - buttonWidth);
+				if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
+				{
+					ImGui::OpenPopup("Edit note");
+					this->playersNoteToEdit = uniqueID;
+				}
+
+				ImGui::NextColumn();
+
+				RenderEditNoteModal();
 			}
-
-			ImGui::NextColumn();
-			
-			RenderEditNoteModal();
-
 			ImGui::EndChild();
 
 			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
-			if (ImGui::Button("What am I doing?", ImVec2(200, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+			if (ImGui::Button("Ok", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
 			{
 				this->openQuickNote = false;
 				ImGui::CloseCurrentPopup();
