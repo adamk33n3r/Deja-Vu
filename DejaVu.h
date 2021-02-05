@@ -116,7 +116,7 @@ public:
 	void RenderDrawable(CanvasWrapper canvas);
 	void OpenScoreboard(std::string eventName);
 	void CloseScoreboard(std::string eventName);
-
+	void LaunchQuickNoteModal();
 // GUI
 
 #if ENABLE_GUI

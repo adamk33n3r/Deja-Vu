@@ -5,7 +5,7 @@
 
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 
-#define DEV 0
+#define DEV 1
 
 /**
  * TODO
@@ -132,6 +132,11 @@ void DejaVu::onLoad()
 	this->cvarManager->registerNotifier("dejavu_track_current", [this](const std::vector<std::string>& commands) {
 		HandlePlayerAdded("dejavu_track_current");
 	}, "Tracks current lobby", PERMISSION_ONLINE);
+
+	this->cvarManager->registerNotifier("dejavu_launch_quick_note", [this](const std::vector<std::string>& commands) {
+		// I'm not sure if the PERMISSION_ONLINE actually prevents use on main menu etc so might need to check if you're in a game before calling this - don't think it does
+		LaunchQuickNoteModal();
+		}, "Launches the quick note modal", PERMISSION_ONLINE);
 
 #if DEV
 	this->cvarManager->registerNotifier("dejavu_test", [this](const std::vector<std::string>& commands) {
