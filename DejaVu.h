@@ -117,10 +117,12 @@ public:
 	void OpenScoreboard(std::string eventName);
 	void CloseScoreboard(std::string eventName);
 	void LaunchQuickNoteModal();
-// GUI
+
+#pragma region GUI
 
 #if ENABLE_GUI
 	void Render() override;
+	void RenderEditNoteModal();
 	std::string GetMenuName() override;
 	std::string GetMenuTitle() override;
 	void SetImGuiContext(uintptr_t ctx) override;
@@ -128,18 +130,22 @@ public:
 	bool IsActiveOverlay() override;
 	void OnOpen() override;
 	void OnClose() override;
+	void OpenMenu();
+	void CloseMenu();
+	void ToggleMenu();
 #endif
 
 private:
 	bool isWindowOpen = false;
 	bool shouldBlockInput = false;
 	std::string menuTitle = "Deja Vu";
-	const char* playlists[2] = {"option 1", "option 2"};
-	bool selected1 = false;
-	bool isScoreboardOpen = false;
+	bool openQuickNote = false;
+	std::string playersNoteToEdit = "";
 
-private:
+#pragma endregion GUI
+
 #pragma region cvars
+private:
 	std::shared_ptr<bool> enabled;
 	std::shared_ptr<bool> trackOpponents;
 	std::shared_ptr<bool> trackTeammates;
@@ -169,6 +175,7 @@ private:
 	json data;
 	MMRWrapper mmrWrapper;
 	bool gameIsOver = false;
+	bool isScoreboardOpen = false;
 
 	std::map<std::string, PriWrapper> currentMatchPRIs;
 	std::map<std::string, std::set<std::string>> matchPRIsMetList;
