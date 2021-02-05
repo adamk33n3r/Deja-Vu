@@ -13,6 +13,63 @@ void DejaVu::Render()
 		return;
 	}
 
+	if (this->openQuickNote)
+	{
+		ImGui::OpenPopup("LaunchQuickNoteModal");
+		ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y / 4), ImGuiCond_Appearing);
+		if (ImGui::BeginPopupModal("LaunchQuickNoteModal"))
+		{
+			float reserveHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
+			ImGui::BeginChild("#dejavu_quick_note", ImVec2(0, -reserveHeight));
+			ImGui::Columns(2, "Quick Note Edit");
+			ImGui::SetColumnWidth(0, 200);
+
+			ImGui::Separator();
+			ImGui::Text("Name"); ImGui::NextColumn();
+			ImGui::Text("Player Note"); ImGui::NextColumn();
+			ImGui::Separator();
+
+			// Ben: Make this a loop of this->matchPRIsMetList[curMatchGUID]
+			std::string uniqueID = "0";
+			auto& playerData = this->data["players"][uniqueID];
+			ImGui::Text(playerData["name"].get<std::string>().c_str()); ImGui::NextColumn();
+
+			float buttonPos = ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x;
+			if (!playerData.contains("note"))
+				playerData["note"] = "";
+			float buttonWidth = 2 * ImGui::GetStyle().FramePadding.x + ImGui::CalcTextSize("Edit").x;
+			ImGui::BeginChild((std::string("#note") + uniqueID).c_str(), ImVec2(ImGui::GetColumnWidth() - buttonWidth - 2 * ImGui::GetStyle().ItemSpacing.x, ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_NoScrollbar);
+			ImGui::TextWrapped(playerData["note"].get<std::string>().c_str());
+			ImGui::EndChild();
+			ImGui::SameLine();
+			ImGui::SetCursorPosX(buttonPos - buttonWidth);
+			if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
+			{
+				ImGui::OpenPopup("Edit note");
+				this->playersNoteToEdit = uniqueID;
+			}
+
+			ImGui::NextColumn();
+			
+			RenderEditNoteModal();
+
+			ImGui::EndChild();
+
+			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
+			if (ImGui::Button("What am I doing?", ImVec2(200, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+			{
+				this->openQuickNote = false;
+				ImGui::CloseCurrentPopup();
+				CloseMenu();
+			}
+
+			ImGui::EndPopup();
+		}
+
+		return;
+	}
+
+
 	//ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
 	//ImGui::SetNextWindowSize(ImVec2(256, 384), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSizeConstraints(ImVec2(55 + 250 + 55 + 250 + 80 + 100, 600), ImVec2(FLT_MAX, FLT_MAX));
@@ -87,7 +144,6 @@ void DejaVu::Render()
 
 	std::string selectedPlaylistIDStr = std::to_string(static_cast<int>(selectedPlaylist));
 
-	static std::string playersNoteToEdit = "";
 	auto nameFilterView = std::string_view(nameFilter);
 
 	int i = 0;
@@ -140,67 +196,15 @@ void DejaVu::Render()
 			if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
 			{
 				ImGui::OpenPopup("Edit note");
-				playersNoteToEdit = uniqueID;
+				this->playersNoteToEdit = uniqueID;
 			}
 			ImGui::NextColumn();
 			ImGui::Separator();
 		}
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 3, ImGui::GetIO().DisplaySize.y / 3), ImGuiCond_Appearing);
 
-	if (ImGui::BeginPopupModal("Edit note"))
-	{
-		if (playersNoteToEdit.empty())
-		{
-			ImGui::CloseCurrentPopup();
-		}
-		else
-		{
-			json::value_type playerData = this->data["players"][playersNoteToEdit];
-			if (!playerData.contains("note"))
-				playerData["note"] = "";
-			auto playerNote = playerData["note"].get_ptr<std::string*>();
-
-			ImVec2 textSize(
-				ImGui::GetWindowWidth() - 2 * ImGui::GetStyle().WindowPadding.x,
-				ImGui::GetWindowHeight() - 2 * ImGui::GetStyle().WindowPadding.y - ImGui::GetTextLineHeightWithSpacing() - 4 * ImGui::GetStyle().FramePadding.y - 4 * ImGui::GetStyle().ItemSpacing.y
-			);
-			if (ImGui::InputTextMultiline("##note", playerNote, textSize))
-				this->data["players"][playersNoteToEdit]["note"] = *playerNote;
-			//if (ImGui::IsAnyWindowFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0))
-			if (ImGui::IsWindowAppearing())
-				ImGui::SetKeyboardFocusHere();
-
-			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
-			if (ImGui::Button("OK", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
-				ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::EndPopup();
-	}
-
-	ImGui::OpenPopup("LaunchQuickNoteModal");
-	if (ImGui::BeginPopupModal("LaunchQuickNoteModal"))
-	{
-		{
-		ImGui::Columns(2, "Quick Note Edit");
-
-		ImGui::Separator();
-		ImGui::Text("Name"); ImGui::NextColumn();
-		ImGui::Text("Player Note"); ImGui::NextColumn();
-		ImGui::Separator();
-		
-		if (ImGui::IsWindowAppearing())
-			ImGui::SetKeyboardFocusHere();
-
-		int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
-		if (ImGui::Button("What am I doing?", ImVec2(200, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-
+	RenderEditNoteModal();
 
 	//if (ImGui::BeginMenuBar())
 	//{
@@ -219,6 +223,41 @@ void DejaVu::Render()
 
 	this->shouldBlockInput = ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard;
 	ImGui::End();
+}
+
+void DejaVu::RenderEditNoteModal()
+{
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 3, ImGui::GetIO().DisplaySize.y / 3), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Edit note"))
+	{
+		if (false && this->playersNoteToEdit.empty())
+		{
+			ImGui::CloseCurrentPopup();
+		}
+		else
+		{
+			json::value_type playerData = this->data["players"][this->playersNoteToEdit];
+			if (!playerData.contains("note"))
+				playerData["note"] = "";
+			auto playerNote = playerData["note"].get_ptr<std::string*>();
+
+			ImVec2 textSize(
+				ImGui::GetWindowWidth() - 2 * ImGui::GetStyle().WindowPadding.x,
+				ImGui::GetWindowHeight() - 2 * ImGui::GetStyle().WindowPadding.y - ImGui::GetTextLineHeightWithSpacing() - 4 * ImGui::GetStyle().FramePadding.y - 4 * ImGui::GetStyle().ItemSpacing.y
+			);
+			if (ImGui::InputTextMultiline("##note", playerNote, textSize))
+				this->data["players"][this->playersNoteToEdit]["note"] = *playerNote;
+			//if (ImGui::IsAnyWindowFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0))
+			if (ImGui::IsWindowAppearing())
+				ImGui::SetKeyboardFocusHere();
+
+			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
+			if (ImGui::Button("OK", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+				ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
 }
 
 std::string DejaVu::GetMenuName()
@@ -249,7 +288,9 @@ bool DejaVu::IsActiveOverlay()
 
 void DejaVu::LaunchQuickNoteModal()
 {
-	//some stuff
+	this->openQuickNote = true;
+	if (!this->isWindowOpen)
+		cvarManager->executeCommand("togglemenu " + GetMenuName());
 }
 
 void DejaVu::OnOpen()
@@ -263,5 +304,22 @@ void DejaVu::OnClose()
 {
 	this->isWindowOpen = false;
 	WriteData();
+}
+
+void DejaVu::OpenMenu()
+{
+	if (!this->isWindowOpen)
+		ToggleMenu();
+}
+
+void DejaVu::CloseMenu()
+{
+	if (this->isWindowOpen)
+		ToggleMenu();
+}
+
+void DejaVu::ToggleMenu()
+{
+	cvarManager->executeCommand("togglemenu " + GetMenuName());
 }
 #endif
