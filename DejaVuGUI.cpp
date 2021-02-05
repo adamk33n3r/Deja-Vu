@@ -180,6 +180,26 @@ void DejaVu::Render()
 		ImGui::EndPopup();
 	}
 
+	ImGui::OpenPopup("LaunchQuickNoteModal");
+	if (ImGui::BeginPopupModal("LaunchQuickNoteModal"))
+	{
+		{
+		ImGui::Columns(2, "Quick Note Edit");
+
+		ImGui::Separator();
+		ImGui::Text("Name"); ImGui::NextColumn();
+		ImGui::Text("Player Note"); ImGui::NextColumn();
+		ImGui::Separator();
+		
+		if (ImGui::IsWindowAppearing())
+			ImGui::SetKeyboardFocusHere();
+
+		int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
+		if (ImGui::Button("What am I doing?", ImVec2(200, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
 
 
 	//if (ImGui::BeginMenuBar())
@@ -225,6 +245,11 @@ bool DejaVu::ShouldBlockInput()
 bool DejaVu::IsActiveOverlay()
 {
 	return true;
+}
+
+void DejaVu::LaunchQuickNoteModal()
+{
+	//some stuff
 }
 
 void DejaVu::OnOpen()
