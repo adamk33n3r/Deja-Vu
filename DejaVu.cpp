@@ -5,8 +5,6 @@
 
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 
-#define DEV 1
-
 /**
  * TODO
  * - Add option to show total record across all playlists
@@ -134,8 +132,10 @@ void DejaVu::onLoad()
 	}, "Tracks current lobby", PERMISSION_ONLINE);
 
 	this->cvarManager->registerNotifier("dejavu_launch_quick_note", [this](const std::vector<std::string>& commands) {
-		// I'm not sure if the PERMISSION_ONLINE actually prevents use on main menu etc so might need to check if you're in a game before calling this - don't think it does
-		LaunchQuickNoteModal();
+#if !DEV
+		if (IsInRealGame())
+#endif !DEV
+			LaunchQuickNoteModal();
 		}, "Launches the quick note modal", PERMISSION_ONLINE);
 
 #if DEV
@@ -150,13 +150,13 @@ void DejaVu::onLoad()
 	}, "Cleans up the json", PERMISSION_ALL);
 
 	this->cvarManager->registerNotifier("dejavu_dump_list", [this](const std::vector<std::string>& commands) {
-		if (this->matchPRIsMetList.size() == 0)
+		if (this->matchesMetLists.size() == 0)
 		{
 			this->cvarManager->log("No entries in list");
 			return;
 		}
 
-		for (auto match : this->matchPRIsMetList)
+		for (auto match : this->matchesMetLists)
 		{
 			std::string guid = match.first;
 			this->cvarManager->log("For match GUID:" + guid);
@@ -442,6 +442,19 @@ void DejaVu::WriteData()
 	}
 }
 
+std::optional<std::string> DejaVu::GetMatchGUID()
+{
+	ServerWrapper server = GetCurrentServer();
+	if (server.IsNull())
+		return std::nullopt;
+	if (server.IsPlayingPrivate())
+		return std::nullopt;
+	const std::string& curMatchGUID = server.GetMatchGUID();
+	if (curMatchGUID == "No worldInfo")
+		return std::nullopt;
+	return curMatchGUID;
+}
+
 ServerWrapper DejaVu::GetCurrentServer()
 {
 	if (this->gameWrapper->IsInReplay())
@@ -476,7 +489,7 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 	LOG(INFO) << "HandlePlayerAdded: " << eventName;
 	if (this->gameIsOver)
 		return;
-	ServerWrapper server = this->GetCurrentServer();
+	ServerWrapper server = GetCurrentServer();
 	LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
 	if (server.IsNull())
 		return;
@@ -559,10 +572,10 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 			//GetAndSetMetMMR(uniqueID, curPlaylist, uniqueID);
 
 			// Only do met count logic if we haven't yet
-			if (this->matchPRIsMetList[matchGUID].count(uniqueIDStr) == 0)
+			if (this->matchesMetLists[matchGUID].count(uniqueIDStr) == 0)
 			{
 				LOG(INFO) << "Haven't processed yet: " << playerName;
-				this->matchPRIsMetList[matchGUID].emplace(uniqueIDStr);
+				this->matchesMetLists[matchGUID].emplace(uniqueIDStr);
 				int metCount = 0;
 				if (!this->data["players"].contains(uniqueIDStr))
 				{
@@ -735,7 +748,7 @@ void DejaVu::Reset()
 	this->gameIsOver = false;
 	this->currentMatchPRIs.clear();
 	// Maybe move this to HandleGameLeave but probably don't need to worry about it
-	//this->matchPRIsMetList.clear();
+	//this->matchesMetLists.clear();
 	this->blueTeamRenderData.clear();
 	this->orangeTeamRenderData.clear();
 }
@@ -872,7 +885,7 @@ void DejaVu::SetRecord()
 
 bool DejaVu::IsInRealGame()
 {
-	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay();
+	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay() && !this->gameWrapper->IsInFreeplay();
 }
 
 void DejaVu::RenderDrawable(CanvasWrapper canvas)

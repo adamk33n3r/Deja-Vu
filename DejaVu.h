@@ -1,6 +1,7 @@
 #pragma once
 #pragma comment(lib, "BakkesMod.lib")
 
+#define DEV 1
 #define ENABLE_GUI 1
 
 #define _HAS_STD_BYTE 0
@@ -9,6 +10,7 @@
 #include <map>
 #include <set>
 #include <filesystem>
+#include <optional>
 #if ENABLE_GUI
 #include "bakkesmod/plugin/pluginwindow.h"
 #endif
@@ -178,7 +180,7 @@ private:
 	bool isScoreboardOpen = false;
 
 	std::map<std::string, PriWrapper> currentMatchPRIs;
-	std::map<std::string, std::set<std::string>> matchPRIsMetList;
+	std::map<std::string, std::set<std::string>> matchesMetLists;
 	std::vector<RenderData> blueTeamRenderData;
 	std::vector<RenderData> orangeTeamRenderData;
 	std::vector<std::string> playerIDsToDisplay;
@@ -211,6 +213,7 @@ private:
 	bool IsInRealGame();
 	void HookAndLogEvent(std::string eventName);
 
+	std::optional<std::string> GetMatchGUID();
 	ServerWrapper GetCurrentServer();
 	PriWrapper GetLocalPlayerPRI();
 
