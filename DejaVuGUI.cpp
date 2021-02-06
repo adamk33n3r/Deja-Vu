@@ -15,22 +15,26 @@ void DejaVu::Render()
 
 	if (this->openQuickNote)
 	{
+#if DEV
+		std::set<std::string> matchMetList = { "0" };
+		auto curMatchGUID = GetMatchGUID();
+		if (curMatchGUID.has_value())
+			matchMetList = this->matchesMetLists[curMatchGUID.value()];
+#else
+		auto curMatchGUID = GetMatchGUID();
+		if (!curMatchGUID.has_value())
+		{
+			this->openQuickNote = false;
+			return;
+		}
+
+		const std::set<std::string>& matchMetList = this->matchesMetLists[curMatchGUID.value()];
+#endif DEV
+			
 		ImGui::OpenPopup("LaunchQuickNoteModal");
 		ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y / 4), ImGuiCond_Appearing);
 		if (ImGui::BeginPopupModal("LaunchQuickNoteModal"))
 		{
-			ServerWrapper server = this->GetCurrentServer();
-			LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
-			if (server.IsNull())
-				return;
-			if (server.IsPlayingPrivate())
-				return;
-			std::string curMatchGUID = server.GetMatchGUID();
-			LOG(INFO) << "Current Match GUID: " << curMatchGUID;
-			// Too early I guess, so bail since we need the match guid for tracking
-			if (curMatchGUID == "No worldInfo")
-				return;
-			
 			float reserveHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
 			ImGui::BeginChild("#dejavu_quick_note", ImVec2(0, -reserveHeight));
 			ImGui::Columns(2, "Quick Note Edit");
@@ -41,8 +45,7 @@ void DejaVu::Render()
 			ImGui::Text("Player Note"); ImGui::NextColumn();
 			ImGui::Separator();
 
-			// Ben: Make this a loop of this->matchPRIsMetList[curMatchGUID]
-			for (const auto& uniqueID : this->matchPRIsMetList[curMatchGUID])
+			for (const auto& uniqueID : matchMetList)
 			{
 				auto& playerData = this->data["players"][uniqueID];
 				ImGui::Text(playerData["name"].get<std::string>().c_str()); ImGui::NextColumn();
