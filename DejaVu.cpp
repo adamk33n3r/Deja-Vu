@@ -450,7 +450,7 @@ std::optional<std::string> DejaVu::GetMatchGUID()
 	if (server.IsPlayingPrivate())
 		return std::nullopt;
 	const std::string& curMatchGUID = server.GetMatchGUID();
-	if (curMatchGUID == "No worldInfo")
+	if (curMatchGUID == "No worldInfo" || curMatchGUID.length() == 0)
 		return std::nullopt;
 	return curMatchGUID;
 }

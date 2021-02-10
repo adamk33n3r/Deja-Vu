@@ -67,12 +67,13 @@ void DejaVu::Render()
 
 				ImGui::NextColumn();
 
-				RenderEditNoteModal();
 			}
+
+			RenderEditNoteModal();
 			ImGui::EndChild();
 
 			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
-			if (ImGui::Button("Ok", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+			if (ImGui::Button("Close", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
 			{
 				this->openQuickNote = false;
 				ImGui::CloseCurrentPopup();
@@ -82,6 +83,7 @@ void DejaVu::Render()
 			ImGui::EndPopup();
 		}
 
+		this->shouldBlockInput = ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard;
 		return;
 	}
 
