@@ -178,6 +178,7 @@ void DejaVu::onLoad()
 
 	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
 	RegisterCVar("cl_dejavu_toggle_with_scoreboard", "Toggle with scoreboard (instead of always on)", false, this->toggleWithScoreboard);
+	RegisterCVar("cl_dejavu_show_player_notes", "Show player notes in match", false, this->showNotes);
 	
 	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
@@ -938,10 +939,21 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	//                                                                  borderless padding
 
 	Vector2 canvasSize = Canvas::GetSize();
-	int width = (int)((canvasSize.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
+	int tableWidth = 200;
+	if (*this->showNotes)
+		tableWidth += 100;
+	int width = (int)((canvasSize.X - tableWidth * *this->scale) * *this->width) + tableWidth * *this->scale;
 
 	int maxX = canvasSize.X - width;
 	int maxY = canvasSize.Y - totalHeight;
+
+	std::vector<Canvas::CanvasColumnOptions> columnOptions{
+		{ Canvas::Alignment::LEFT },
+		{ Canvas::Alignment::RIGHT, (*this->showMetCount ? Canvas::GetStringWidth("999") : Canvas::GetStringWidth("999:999")) + 11 },
+	};
+
+	if (*this->showNotes)
+		columnOptions.push_back({ Canvas::Alignment::LEFT });
 
 	Canvas::Color textColor{ (unsigned)*this->textColorR, (unsigned)*this->textColorG, (unsigned)*this->textColorB };
 	Canvas::Color bgColor{ (unsigned)*this->backgroundColorR, (unsigned)*this->backgroundColorG, (unsigned)*this->backgroundColorB };
@@ -952,11 +964,6 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		false,
 		Canvas::Color::WHITE,
 		width,
-	};
-
-	std::vector<Canvas::CanvasColumnOptions> columnOptions{
-		{ Canvas::Alignment::LEFT },
-		{ Canvas::Alignment::RIGHT, (*this->showMetCount ? Canvas::GetStringWidth("999") : Canvas::GetStringWidth("999:999")) + 11 },
 	};
 
 	Canvas::SetPosition(*this->xPos * maxX, *this->yPos * maxY);
@@ -979,10 +986,11 @@ void DejaVu::RenderUI(const std::vector<RenderData>& renderData, const Canvas::C
 	for (const auto& player : renderData)
 	{
 		std::string playerName = player.name;
+		std::string note = this->data["players"][player.id].value("note", "");
 		// Only show * if showing record, we've met them, and record is 0:0
 		if (!*this->showMetCount && player.metCount > 1 && (player.record.wins == 0 && player.record.losses == 0))
 			playerName += "*";
-		Canvas::Row({ playerName, *this->showMetCount ? std::to_string(player.metCount) : (std::to_string(player.record.wins) + ":" + std::to_string(player.record.losses)) });
+		Canvas::Row({ playerName, *this->showMetCount ? std::to_string(player.metCount) : (std::to_string(player.record.wins) + ":" + std::to_string(player.record.losses)), note });
 	}
 
 	Canvas::EndTable();

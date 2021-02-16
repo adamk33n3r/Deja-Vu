@@ -154,6 +154,7 @@ private:
 	std::shared_ptr<bool> trackGrouped;
 	std::shared_ptr<bool> enabledVisuals;
 	std::shared_ptr<bool> toggleWithScoreboard;
+	std::shared_ptr<bool> showNotes;
 	std::shared_ptr<bool> enabledDebug;
 	std::shared_ptr<bool> enabledLog;
 	std::shared_ptr<bool> showMetCount;
