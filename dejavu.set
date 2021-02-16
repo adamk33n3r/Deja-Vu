@@ -8,10 +8,10 @@ Deja Vu
 
 9|Visual settings
 1|Enable visuals|cl_dejavu_visuals
-1|Toggle with scoreboard (instead of always on)|cl_dejavu_toggle_with_scoreboard
 
 10|cl_dejavu_visuals
 1|Toggle with scoreboard (instead of always on)|cl_dejavu_toggle_with_scoreboard
+1|Show player notes in match|cl_dejavu_show_player_notes
 1|Show met count (instead of your record)|cl_dejavu_show_metcount
 1|Enable debug view (for visual settings)|cl_dejavu_debug
 

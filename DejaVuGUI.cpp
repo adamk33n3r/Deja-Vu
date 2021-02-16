@@ -2,6 +2,8 @@
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 #include "vendor/imgui/imgui.h"
 #include "vendor/imgui/imgui_stdlib.h"
+#include <algorithm>
+#undef max
 
 #if ENABLE_GUI
 void DejaVu::Render()
@@ -38,7 +40,7 @@ void DejaVu::Render()
 			float reserveHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
 			ImGui::BeginChild("#dejavu_quick_note", ImVec2(0, -reserveHeight));
 			ImGui::Columns(2, "Quick Note Edit");
-			ImGui::SetColumnWidth(0, 200);
+			ImGui::SetColumnWidth(0, std::max(ImGui::GetColumnWidth(0), 200.0f));
 
 			ImGui::Separator();
 			ImGui::Text("Name"); ImGui::NextColumn();
@@ -170,7 +172,17 @@ void DejaVu::Render()
 	{
 		if (selectedPlaylist != Playlist::NONE && (!player.value()["playlistData"].contains(selectedPlaylistIDStr) || player.value()["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
 			continue;
-		std::string name = player.value()["name"].get<std::string>();
+		std::string name;
+		try {
+			name = player.value()["name"].get<std::string>();
+		}
+		catch (const std::exception& e)
+		{
+			this->gameWrapper->Toast("DejaVu Error", "Check console/log for details");
+			this->cvarManager->log(e.what());
+			LOG(INFO) << e.what();
+			continue;
+		}
 		bool nameFound = std::search(name.begin(), name.end(), nameFilterView.begin(), nameFilterView.end(), [](char ch1, char ch2) {
 			return std::toupper(ch1) == std::toupper(ch2);
 		}) == name.end();
