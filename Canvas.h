@@ -10,16 +10,27 @@
 
 namespace Canvas {
 	struct Color {
-		unsigned int r = 0;
-		unsigned int g = 255;
-		unsigned int b = 0;
+		unsigned char r = 0;
+		unsigned char g = 255;
+		unsigned char b = 0;
+		unsigned char a = 255;
 
 		const static Color WHITE;
 		const static Color BLACK;
 		const static Color RED;
 		const static Color GREEN;
 		const static Color BLUE;
+
+		operator LinearColor()
+		{
+			return LinearColor{ (float)this->r, (float)this->g, (float)this->b, (float)this->a };
+		}
 	};
+
+	inline Color to_color(LinearColor lColor)
+	{
+		return Color{ (unsigned char)lColor.R, (unsigned char)lColor.G, (unsigned char)lColor.B, (unsigned char)lColor.A };
+	}
 
 	enum class Alignment {
 		LEFT = -1,
@@ -56,7 +67,7 @@ namespace Canvas {
 		bool ctxSet;
 		unsigned int characterWidths[256];
 		unsigned int characterHeight = 14 /* top padding */ + 2;
-		unsigned int scale = 1;
+		float scale = 1.0F;
 		char alpha = (char)255;
 		CanvasTableContext tableContext;
 
@@ -171,9 +182,9 @@ namespace Canvas {
 
 	void SetContext(CanvasWrapper canvas);
 	bool IsContextSet();
-	int GetCharHeight();
+	float GetCharHeight();
 	int GetCharWidth(unsigned char ch);
-	int GetStringWidth(std::string str);
+	float GetStringWidth(std::string str);
 
 	// Forward methods
 	void SetColor(char red, char green, char blue, char alpha);
@@ -204,6 +215,7 @@ namespace Canvas {
 	void SetGlobalAlpha(char alpha);
 	void SetColor(Color color);
 	void SetColor(Color color, char alpha);
+	void SetColor(LinearColor color);
 	void SetScale(unsigned int scale);
 	void SetPosition(int x, int y);
 	void SetPosition(float x, float y);

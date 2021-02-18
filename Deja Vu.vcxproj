@@ -164,6 +164,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Canvas.cpp" />
+    <ClCompile Include="CVar2WayBinding.cpp" />
     <ClCompile Include="DejaVuGUI.cpp" />
     <ClCompile Include="DejaVu.cpp" />
     <ClCompile Include="vendor\easyloggingpp-9.96.7\src\easylogging++.cc" />
@@ -180,6 +181,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Canvas.h" />
+    <ClInclude Include="CVar2WayBinding.h" />
     <ClInclude Include="vendor\easyloggingpp-9.96.7\src\easylogging++.h" />
     <ClInclude Include="vendor\imgui\imconfig.h" />
     <ClInclude Include="vendor\imgui\imgui.h" />

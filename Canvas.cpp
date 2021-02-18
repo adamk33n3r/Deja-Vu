@@ -26,21 +26,23 @@ bool Canvas::IsContextSet()
 	return GCanvas->ctxSet;
 }
 
-int Canvas::GetCharHeight()
+float Canvas::GetCharHeight()
 {
+	return GCanvas->canvas.GetStringSize("A", GCanvas->scale, GCanvas->scale).Y;
 	return GCanvas->characterHeight * GCanvas->scale;
 }
 
 int Canvas::GetCharWidth(unsigned char ch)
 {
 	if (ch >= 256)
-		return 8 * GCanvas->scale;
+		return 8 * (int)GCanvas->scale;
 	unsigned int width = GCanvas->characterWidths[ch];
 	return (width == 0 ? 8 : width) * GCanvas->scale;
 }
 
-int Canvas::GetStringWidth(std::string str)
+float Canvas::GetStringWidth(std::string str)
 {
+	return GCanvas->canvas.GetStringSize(str, GCanvas->scale, GCanvas->scale).X;
 	unsigned int total = 0;
 	for (char ch : str)
 	{
@@ -278,7 +280,7 @@ void Canvas::EndTable()
 			int colNum = 0;
 			for (const auto& col : row)
 			{
-				colSizes[colNum] = std::max({ GetStringWidth(col) + GCanvas->tableContext.tableOptions.padding * 2, colSizes[colNum], 5 });
+				colSizes[colNum] = std::max({ (int)GetStringWidth(col) + GCanvas->tableContext.tableOptions.padding * 2, colSizes[colNum], 5 });
 				colNum++;
 			}
 		}

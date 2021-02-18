@@ -1,21 +1,21 @@
 #pragma once
 #pragma comment(lib, "BakkesMod.lib")
 
-#define DEV 1
-#define ENABLE_GUI 1
+#define DEV 0
 
 #define _HAS_STD_BYTE 0
-#include "bakkesmod/plugin/bakkesmodplugin.h"
 #include <vector>
 #include <map>
 #include <set>
 #include <filesystem>
 #include <optional>
-#if ENABLE_GUI
+
+#include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
-#endif
 #include "vendor/json.hpp"
+
 #include "Canvas.h"
+#include "CVar2WayBinding.h"
 
 
 using json = nlohmann::json;
@@ -99,10 +99,7 @@ inline void from_json(const json& j, Record& record) {
 	j.at("losses").get_to(record.losses);
 }
 
-class DejaVu : public BakkesMod::Plugin::BakkesModPlugin
-#if ENABLE_GUI
-, public BakkesMod::Plugin::PluginWindow
-#endif
+class DejaVu : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginWindow
 {
 public:
 	DejaVu() : mmrWrapper(MMRWrapper(NULL)) {}
@@ -122,7 +119,6 @@ public:
 
 #pragma region GUI
 
-#if ENABLE_GUI
 	void Render() override;
 	void RenderEditNoteModal();
 	std::string GetMenuName() override;
@@ -135,7 +131,6 @@ public:
 	void OpenMenu();
 	void CloseMenu();
 	void ToggleMenu();
-#endif
 
 private:
 	bool isWindowOpen = false;
@@ -148,31 +143,48 @@ private:
 
 #pragma region cvars
 private:
-	std::shared_ptr<bool> enabled;
-	std::shared_ptr<bool> trackOpponents;
-	std::shared_ptr<bool> trackTeammates;
-	std::shared_ptr<bool> trackGrouped;
-	std::shared_ptr<bool> enabledVisuals;
-	std::shared_ptr<bool> toggleWithScoreboard;
-	std::shared_ptr<bool> showNotes;
-	std::shared_ptr<bool> enabledDebug;
-	std::shared_ptr<bool> enabledLog;
-	std::shared_ptr<bool> showMetCount;
-	std::shared_ptr<int> scale;
-	std::shared_ptr<float> alpha;
-	std::shared_ptr<float> xPos;
-	std::shared_ptr<float> yPos;
-	std::shared_ptr<float> width;
 
-	std::shared_ptr<int> textColorR;
-	std::shared_ptr<int> textColorG;
-	std::shared_ptr<int> textColorB;
+	CVar2WayBinding<bool> enabled =                CVar2WayBinding<bool>("cl_dejavu_enabled", true, "Enables plugin");
+	CVar2WayBinding<bool> trackOpponents =         CVar2WayBinding<bool>("cl_dejavu_track_opponents", true, "Track players if opponents");
+	CVar2WayBinding<bool> trackTeammates =         CVar2WayBinding<bool>("cl_dejavu_track_teammates", true, "Track players if teammates");
+	CVar2WayBinding<bool> trackGrouped =           CVar2WayBinding<bool>("cl_dejavu_track_grouped", true, "Track players if in party");
+	CVar2WayBinding<bool> enabledVisuals =         CVar2WayBinding<bool>("cl_dejavu_visuals", true, "Enables visuals");
+	CVar2WayBinding<bool> toggleWithScoreboard =   CVar2WayBinding<bool>("cl_dejavu_toggle_with_scoreboard", false, "Toggle with scoreboard (instead of always on)");
+	CVar2WayBinding<bool> showNotes =              CVar2WayBinding<bool>("cl_dejavu_show_player_notes", false, "Show player notes in the visuals");
+	CVar2WayBinding<bool> enabledDebug =           CVar2WayBinding<bool>("cl_dejavu_debug", false, "Enables debug view. Useful when changing visual settings");
+	CVar2WayBinding<bool> enabledLog =             CVar2WayBinding<bool>("cl_dejavu_log", false, "Enables logging");
+	CVar2WayBinding<bool> showMetCount =           CVar2WayBinding<bool>("cl_dejavu_show_metcount", true, "Show the met count instead of your record");
+	CVar2WayBinding<int> scale =                   CVar2WayBinding<int>("cl_dejavu_scale", 1, "Scale of visuals", true, true, 0.0f, true, 4.0f);
+	CVar2WayBinding<float> alpha =                 CVar2WayBinding<float>("cl_dejavu_alpha", 0.75f, "Alpha of visuals", true, true, 0.0f, true, 1.0f);
+	CVar2WayBinding<float> xPos =                  CVar2WayBinding<float>("cl_dejavu_xpos", 0.0f, "X position of visuals", true, true, 0.0f, true, 1.0f);
+	CVar2WayBinding<float> yPos =                  CVar2WayBinding<float>("cl_dejavu_ypos", 1.0f, "Y position of visuals", true, true, 0.0f, true, 1.0f);
+	CVar2WayBinding<float> width =                 CVar2WayBinding<float>("cl_dejavu_width", 0.0f, "Width of visuals", true, true, 0.0f, true, 1.0f);
 
-	std::shared_ptr<bool> enabledBackground;
+	// DEPRECATED
+	[[deprecated("Use textColor instead")]]
+	CVar2WayBinding<int> textColorR =              CVar2WayBinding<int>("cl_dejavu_text_color_r", 0xff, "Text color: Red", false);
+	// DEPRECATED
+	[[deprecated("Use textColor instead")]]
+	CVar2WayBinding<int> textColorG =              CVar2WayBinding<int>("cl_dejavu_text_color_g", 0x00, "Text color: Green", false);
+	// DEPRECATED
+	[[deprecated("Use textColor instead")]]
+	CVar2WayBinding<int> textColorB =              CVar2WayBinding<int>("cl_dejavu_text_color_b", 0x00, "Text color: Blue", false);
+	CVar2WayBinding<LinearColor> textColor =       CVar2WayBinding<LinearColor>("cl_dejavu_text_color", LinearColor{ 0xff, 0xff, 0xff, 0xff }, "Text color");
 
-	std::shared_ptr<int> backgroundColorR;
-	std::shared_ptr<int> backgroundColorG;
-	std::shared_ptr<int> backgroundColorB;
+	CVar2WayBinding<bool> enabledBackground =      CVar2WayBinding<bool>("cl_dejavu_background", true, "Enables background");
+
+	// DEPRECATED
+	[[deprecated("Use backgroundColor instead")]]
+	CVar2WayBinding<int> backgroundColorR =        CVar2WayBinding<int>("cl_dejavu_background_color_r", 0x00, "Background color: Red", false);
+	// DEPRECATED
+	[[deprecated("Use backgroundColor instead")]]
+	CVar2WayBinding<int> backgroundColorG =        CVar2WayBinding<int>("cl_dejavu_background_color_g", 0x00, "Background color: Green", false);
+	// DEPRECATED
+	[[deprecated("Use backgroundColor instead")]]
+	CVar2WayBinding<int> backgroundColorB =        CVar2WayBinding<int>("cl_dejavu_background_color_b", 0x00, "Background color: Blue", false);
+	CVar2WayBinding<LinearColor> backgroundColor = CVar2WayBinding<LinearColor>("cl_dejavu_background_color", LinearColor{ 0x00, 0x00, 0x00, 0xff }, "Background color");
+
+	CVar2WayBinding<bool> hasUpgradedColors =      CVar2WayBinding<bool>("cl_dejavu_has_upgraded_colors", false, "Flag for upgrading colors", true);
 #pragma endregion cvars
 
 	json data;
@@ -224,7 +236,7 @@ private:
 	CVarWrapper RegisterCVar(
 		const char* name,
 		const char* description,
-		T defaultValue,
+		//T defaultValue,
 		std::shared_ptr<T>& bindTo,
 		bool searchable = true,
 		bool hasMin = false,

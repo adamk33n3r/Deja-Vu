@@ -5,7 +5,6 @@
 #include <algorithm>
 #undef max
 
-#if ENABLE_GUI
 void DejaVu::Render()
 {
 
@@ -352,4 +351,3 @@ void DejaVu::ToggleMenu()
 {
 	cvarManager->executeCommand("togglemenu " + GetMenuName());
 }
-#endif

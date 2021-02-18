@@ -5,9 +5,12 @@
 
 #include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 
+#include "CVar2WayBinding.h"
+
 /**
  * TODO
  * - Add option to show total record across all playlists
+ * - Create 2-way cvar binding
  * - IMGUI stuff
  */
 
@@ -15,11 +18,23 @@ INITIALIZE_EASYLOGGINGPP
 
 BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.5.0", 0)
 
+// to_string overloads for cvars
+namespace std {
+	inline string to_string(const std::string& str) {
+		return str;
+	}
+	string to_string(const LinearColor& color) {
+        char buf[49];
+        sprintf(buf, "(%f, %f, %f, %f)", color.R, color.G, color.B, color.A);
+        return buf;
+	}
+}
+
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
 	const char* name,
 	const char* description,
-	T defaultValue,
+	//T defaultValue,
 	std::shared_ptr<T>& bindTo,
 	bool searchable,
 	bool hasMin,
@@ -29,10 +44,9 @@ CVarWrapper DejaVu::RegisterCVar(
 	bool saveToCfg
 )
 {
-	bindTo = std::make_shared<T>(defaultValue);
 	CVarWrapper cvar = this->cvarManager->registerCvar(
 		name,
-		std::to_string(defaultValue),
+		"",
 		description,
 		searchable,
 		hasMin,
@@ -41,37 +55,7 @@ CVarWrapper DejaVu::RegisterCVar(
 		max,
 		saveToCfg
 	);
-	cvar.bindTo(bindTo);
-
-	return cvar;
-}
-
-template <>
-CVarWrapper DejaVu::RegisterCVar(
-	const char* name,
-	const char* description,
-	std::string defaultValue,
-	std::shared_ptr<std::string>& bindTo,
-	bool searchable,
-	bool hasMin,
-	float min,
-	bool hasMax,
-	float max,
-	bool saveToCfg
-)
-{
-	bindTo = std::make_shared<std::string>(defaultValue);
-	CVarWrapper cvar = this->cvarManager->registerCvar(
-		name,
-		defaultValue,
-		description,
-		searchable,
-		hasMin,
-		min,
-		hasMax,
-		max,
-		saveToCfg
-	);
+	cvar.setValue(*bindTo);
 	cvar.bindTo(bindTo);
 
 	return cvar;
@@ -112,6 +96,8 @@ void DejaVu::CleanUpJson()
 
 void DejaVu::onLoad()
 {
+	SetupLogger(this->logPath.string(), true);
+	LOG(INFO) << "test log";
 	// At end of match in unranked when people leave and get replaced by bots the event fires and for some reason IsInOnlineGame turns back on
 	// Check 1v1. Player added event didn't fire after joining last
 	// Add debug
@@ -156,31 +142,34 @@ void DejaVu::onLoad()
 			return;
 		}
 
-		for (auto match : this->matchesMetLists)
+		for (auto& match : this->matchesMetLists)
 		{
 			std::string guid = match.first;
 			this->cvarManager->log("For match GUID:" + guid);
-			auto set = match.second;
-			for (auto playerID : set)
+			auto& set = match.second;
+			for (auto& playerID : set)
 			{
 				this->cvarManager->log("    " + playerID);
 			}
 		}
 	}, "Dumps met list", PERMISSION_ALL);
+	this->cvarManager->registerNotifier("dejavu_test_cvar_binding", [this](const std::vector<std::string>& commands) {
+		this->enabledDebug = !*this->enabledDebug;
+	}, "Tests cvar binding", PERMISSION_ALL);
 #endif DEV
 
-	RegisterCVar("cl_dejavu_enable", "Enables plugin", true, this->enabled);
+	this->enabled.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_track_opponents", "Track players if opponents", true, this->trackOpponents);
-	RegisterCVar("cl_dejavu_track_teammates", "Track players if teammates", true, this->trackTeammates);
-	RegisterCVar("cl_dejavu_track_grouped", "Track players if in party", true, this->trackGrouped);
-	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of your record", true, this->showMetCount);
+	this->trackOpponents.Register(this->cvarManager);
+	this->trackTeammates.Register(this->cvarManager);
+	this->trackGrouped.Register(this->cvarManager);
+	this->showMetCount.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
-	RegisterCVar("cl_dejavu_toggle_with_scoreboard", "Toggle with scoreboard (instead of always on)", false, this->toggleWithScoreboard);
-	RegisterCVar("cl_dejavu_show_player_notes", "Show player notes in match", false, this->showNotes);
-	
-	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
+	this->enabledVisuals.Register(this->cvarManager);
+	this->toggleWithScoreboard.Register(this->cvarManager);
+	this->showNotes.Register(this->cvarManager);
+
+	auto debugCVar = this->enabledDebug.Register(this->cvarManager);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
 
@@ -203,28 +192,38 @@ void DejaVu::onLoad()
 		}
 	});
 #if DEV
-	debugCVar.setValue(true);
+	this->enabledDebug = true;
 #endif DEV
 
-	RegisterCVar("cl_dejavu_scale", "Scale of visuals", 1, this->scale);
+	this->scale.Register(this->cvarManager);
 	
-	RegisterCVar("cl_dejavu_alpha", "Alpha of display", 0.75f, this->alpha, true, true, 0.0f, true, 1.0f);
+	this->alpha.Register(this->cvarManager);
 	
-	RegisterCVar("cl_dejavu_xpos", "X position of display", 0.0f, this->xPos, true, true, 0.0f, true, 1.0f);
-	RegisterCVar("cl_dejavu_ypos", "Y position of display", 1.0f, this->yPos, true, true, 0.0f, true, 1.0f);
-	RegisterCVar("cl_dejavu_width", "Width of display", 0.0f, this->width, true, true, 0.0f, true, 1.0f);
+	this->xPos.Register(this->cvarManager);
+	this->yPos.Register(this->cvarManager);
+	this->width.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_text_color_r", "Text color: Red", 255, this->textColorR);
-	RegisterCVar("cl_dejavu_text_color_g", "Text color: Green", 255, this->textColorG);
-	RegisterCVar("cl_dejavu_text_color_b", "Text color: Blue", 255, this->textColorB);
+#pragma warning(suppress : 4996)
+	this->textColorR.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->textColorG.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->textColorB.Register(this->cvarManager);
+	this->textColor.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_background", "Enables background", true, this->enabledBackground);
+	this->enabledBackground.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_background_color_r", "Background color: Red", 0, this->backgroundColorR);
-	RegisterCVar("cl_dejavu_background_color_g", "Background color: Green", 0, this->backgroundColorG);
-	RegisterCVar("cl_dejavu_background_color_b", "Background color: Blue", 0, this->backgroundColorB);
+#pragma warning(suppress : 4996)
+	this->backgroundColorR.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->backgroundColorG.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->backgroundColorB.Register(this->cvarManager);
+	this->backgroundColor.Register(this->cvarManager);
 
-	auto logCVar = RegisterCVar("cl_dejavu_log", "Enables logging", false, this->enabledLog);
+	this->hasUpgradedColors.Register(this->cvarManager);
+
+	auto logCVar = this->enabledLog.Register(this->cvarManager);
 	logCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
 
@@ -315,9 +314,20 @@ void DejaVu::onLoad()
 
 	LoadData();
 
+
 	this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
+		if (!*this->hasUpgradedColors)
+		{
+#pragma warning(suppress : 4996)
+			this->textColor = LinearColor{ (float)*this->textColorR, (float)*this->textColorG, (float)*this->textColorB, 0xff };
+#pragma warning(suppress : 4996)
+			this->backgroundColor = LinearColor{ (float)*this->backgroundColorR, (float)*this->backgroundColorG, (float)*this->backgroundColorB, 0xff };
+			this->hasUpgradedColors = true;
+			this->cvarManager->executeCommand("writeconfig");
+		}
+
 		LOG(INFO) << "---DEJAVU LOADED---";
-	}, 5);
+	}, 0.001);
 
 #if DEV
 	this->cvarManager->executeCommand("exec tmp.cfg");
@@ -333,10 +343,8 @@ void DejaVu::onUnload()
 	this->cvarManager->backupCfg("./bakkesmod/cfg/tmp.cfg");
 #endif
 
-#if ENABLE_GUI
 	if (this->isWindowOpen)
 		this->cvarManager->executeCommand("togglemenu " + GetMenuName());
-#endif
 }
 
 
@@ -949,18 +957,16 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 
 	std::vector<Canvas::CanvasColumnOptions> columnOptions{
 		{ Canvas::Alignment::LEFT },
-		{ Canvas::Alignment::RIGHT, (*this->showMetCount ? Canvas::GetStringWidth("999") : Canvas::GetStringWidth("999:999")) + 11 },
+		{ Canvas::Alignment::RIGHT, (int)(*this->showMetCount ? Canvas::GetStringWidth("999") : Canvas::GetStringWidth("999:999")) + 11 },
 	};
 
 	if (*this->showNotes)
 		columnOptions.push_back({ Canvas::Alignment::LEFT });
 
-	Canvas::Color textColor{ (unsigned)*this->textColorR, (unsigned)*this->textColorG, (unsigned)*this->textColorB };
-	Canvas::Color bgColor{ (unsigned)*this->backgroundColorR, (unsigned)*this->backgroundColorG, (unsigned)*this->backgroundColorB };
 	Canvas::CanvasTableOptions tableOptions{
-		textColor,
+		Canvas::to_color(*this->textColor),
 		*this->enabledBackground,
-		bgColor,
+		Canvas::to_color(*this->backgroundColor),
 		false,
 		Canvas::Color::WHITE,
 		width,
