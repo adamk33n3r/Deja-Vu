@@ -1,9 +1,7 @@
 #pragma once
-#pragma comment(lib, "BakkesMod.lib")
 
-#define DEV 0
+#define DEV 1
 
-#define _HAS_STD_BYTE 0
 #include <vector>
 #include <map>
 #include <set>
@@ -12,13 +10,41 @@
 
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
-#include "vendor/json.hpp"
 
 #include "Canvas.h"
 #include "CVar2WayBinding.h"
 
-
 using json = nlohmann::json;
+
+#include "Version.h"
+constexpr auto PluginVersion = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD) stringify(VERSION_PHASE);
+
+constexpr auto CVAR_ENABLED = "cl_dejavu_enabled";
+constexpr auto CVAR_TRACK_OPPONENTS = "cl_dejavu_track_opponents";
+constexpr auto CVAR_TRACK_TEAMMATES = "cl_dejavu_track_teammates";
+constexpr auto CVAR_TRACK_GROUPED = "cl_dejavu_track_grouped";
+constexpr auto CVAR_VISUALS = "cl_dejavu_visuals";
+constexpr auto CVAR_TOGGLE_WITH_SCOREBOARD = "cl_dejavu_toggle_with_scoreboard";
+constexpr auto CVAR_SHOW_PLAYER_NOTES = "cl_dejavu_show_player_notes";
+constexpr auto CVAR_DEBUG = "cl_dejavu_debug";
+constexpr auto CVAR_LOG = "cl_dejavu_log";
+constexpr auto CVAR_SHOW_MET_COUNT = "cl_dejavu_show_metcount";
+constexpr auto CVAR_SHOW_RECORD = "cl_dejavu_show_record";
+constexpr auto CVAR_SCALE = "cl_dejavu_scale";
+constexpr auto CVAR_ALPHA = "cl_dejavu_alpha";
+constexpr auto CVAR_XPOS = "cl_dejavu_xpos";
+constexpr auto CVAR_YPOS = "cl_dejavu_ypos";
+constexpr auto CVAR_WIDTH = "cl_dejavu_width";
+constexpr auto CVAR_TEXT_COLOR_RED = "cl_dejavu_text_color_r";
+constexpr auto CVAR_TEXT_COLOR_GREEN = "cl_dejavu_text_color_g";
+constexpr auto CVAR_TEXT_COLOR_BLUE = "cl_dejavu_text_color_b";
+constexpr auto CVAR_TEXT_COLOR = "cl_dejavu_text_color";
+constexpr auto CVAR_BACKGROUND = "cl_dejavu_background";
+constexpr auto CVAR_BACKGROUND_COLOR_RED = "cl_dejavu_background_color_r";
+constexpr auto CVAR_BACKGROUND_COLOR_GREEN = "cl_dejavu_background_color_g";
+constexpr auto CVAR_BACKGROUND_COLOR_BLUE = "cl_dejavu_background_color_b";
+constexpr auto CVAR_BACKGROUND_COLOR = "cl_dejavu_background_color";
+constexpr auto CVAR_HAS_UPGRADED_COLORS = "cl_dejavu_has_upgraded_colors";
 
 #define PLAYLISTS \
 X(NONE, -1) \
@@ -78,6 +104,12 @@ struct Record {
 	int losses;
 };
 
+enum TEAM : unsigned char {
+	TEAM_NOT_SET = (unsigned char)-1,
+	TEAM_BLUE = 0,
+	TEAM_ORANGE = 1,
+};
+
 
 struct Rect {
 	int X, Y, Width, Height;
@@ -88,6 +120,7 @@ struct RenderData {
 	std::string name;
 	int metCount;
 	Record record;
+	std::string note;
 };
 
 inline void to_json(json& j, const Record& record) {
@@ -141,50 +174,50 @@ private:
 
 #pragma endregion GUI
 
-#pragma region cvars
 private:
 
-	CVar2WayBinding<bool> enabled =                CVar2WayBinding<bool>("cl_dejavu_enabled", true, "Enables plugin");
-	CVar2WayBinding<bool> trackOpponents =         CVar2WayBinding<bool>("cl_dejavu_track_opponents", true, "Track players if opponents");
-	CVar2WayBinding<bool> trackTeammates =         CVar2WayBinding<bool>("cl_dejavu_track_teammates", true, "Track players if teammates");
-	CVar2WayBinding<bool> trackGrouped =           CVar2WayBinding<bool>("cl_dejavu_track_grouped", true, "Track players if in party");
-	CVar2WayBinding<bool> enabledVisuals =         CVar2WayBinding<bool>("cl_dejavu_visuals", true, "Enables visuals");
-	CVar2WayBinding<bool> toggleWithScoreboard =   CVar2WayBinding<bool>("cl_dejavu_toggle_with_scoreboard", false, "Toggle with scoreboard (instead of always on)");
-	CVar2WayBinding<bool> showNotes =              CVar2WayBinding<bool>("cl_dejavu_show_player_notes", false, "Show player notes in the visuals");
-	CVar2WayBinding<bool> enabledDebug =           CVar2WayBinding<bool>("cl_dejavu_debug", false, "Enables debug view. Useful when changing visual settings");
-	CVar2WayBinding<bool> enabledLog =             CVar2WayBinding<bool>("cl_dejavu_log", false, "Enables logging");
-	CVar2WayBinding<bool> showMetCount =           CVar2WayBinding<bool>("cl_dejavu_show_metcount", true, "Show the met count instead of your record");
-	CVar2WayBinding<int> scale =                   CVar2WayBinding<int>("cl_dejavu_scale", 1, "Scale of visuals", true, true, 0.0f, true, 4.0f);
-	CVar2WayBinding<float> alpha =                 CVar2WayBinding<float>("cl_dejavu_alpha", 0.75f, "Alpha of visuals", true, true, 0.0f, true, 1.0f);
-	CVar2WayBinding<float> xPos =                  CVar2WayBinding<float>("cl_dejavu_xpos", 0.0f, "X position of visuals", true, true, 0.0f, true, 1.0f);
-	CVar2WayBinding<float> yPos =                  CVar2WayBinding<float>("cl_dejavu_ypos", 1.0f, "Y position of visuals", true, true, 0.0f, true, 1.0f);
-	CVar2WayBinding<float> width =                 CVar2WayBinding<float>("cl_dejavu_width", 0.0f, "Width of visuals", true, true, 0.0f, true, 1.0f);
+#pragma region cvars
+	CVar2WayBinding<bool> enabled =                CVar2WayBinding<bool>(CVAR_ENABLED, true, "Enables plugin");
+	CVar2WayBinding<bool> trackOpponents =         CVar2WayBinding<bool>(CVAR_TRACK_OPPONENTS, true, "Track players if opponents");
+	CVar2WayBinding<bool> trackTeammates =         CVar2WayBinding<bool>(CVAR_TRACK_TEAMMATES, true, "Track players if teammates");
+	CVar2WayBinding<bool> trackGrouped =           CVar2WayBinding<bool>(CVAR_TRACK_GROUPED, true, "Track players if in party");
+	CVar2WayBinding<bool> enabledVisuals =         CVar2WayBinding<bool>(CVAR_VISUALS, true, "Enables visuals");
+	CVar2WayBinding<bool> toggleWithScoreboard =   CVar2WayBinding<bool>(CVAR_TOGGLE_WITH_SCOREBOARD, false, "Toggle with scoreboard (instead of always on)");
+	CVar2WayBinding<bool> showNotes =              CVar2WayBinding<bool>(CVAR_SHOW_PLAYER_NOTES, false, "Show player notes in the visuals");
+	CVar2WayBinding<bool> enabledDebug =           CVar2WayBinding<bool>(CVAR_DEBUG, false, "Enables debug view. Useful when changing visual settings");
+	CVar2WayBinding<bool> enabledLog =             CVar2WayBinding<bool>(CVAR_LOG, false, "Enables logging");
+	CVar2WayBinding<bool> showMetCount =           CVar2WayBinding<bool>(CVAR_SHOW_MET_COUNT, true, "Show the met count");
+	CVar2WayBinding<bool> showRecord =             CVar2WayBinding<bool>(CVAR_SHOW_RECORD, false, "Show the record");
+	CVar2WayBinding<float> scale =                 CVar2WayBinding<float>(CVAR_SCALE, 1.0f, "Scale of visuals", true, true, 0.0f, true, 4.0f);
+	CVar2WayBinding<float> alpha =                 CVar2WayBinding<float>(CVAR_ALPHA, 0.75f, "Alpha of visuals", true, true, 0.0f, true, 1.0f);
+	CVar2WayBinding<float> xPos =                  CVar2WayBinding<float>(CVAR_XPOS, 0.0f, "X position of visuals", true, true, 0.0f, true, 1.0f);
+	CVar2WayBinding<float> yPos =                  CVar2WayBinding<float>(CVAR_YPOS, 1.0f, "Y position of visuals", true, true, 0.0f, true, 1.0f);
+	CVar2WayBinding<float> width =                 CVar2WayBinding<float>(CVAR_WIDTH, 0.0f, "Width of visuals", true, true, 0.0f, true, 1.0f);
 
 	// DEPRECATED
 	[[deprecated("Use textColor instead")]]
-	CVar2WayBinding<int> textColorR =              CVar2WayBinding<int>("cl_dejavu_text_color_r", 0xff, "Text color: Red", false);
+	CVar2WayBinding<int> textColorR =              CVar2WayBinding<int>(CVAR_TEXT_COLOR_RED, 0xff, "Text color: Red", false);
 	// DEPRECATED
 	[[deprecated("Use textColor instead")]]
-	CVar2WayBinding<int> textColorG =              CVar2WayBinding<int>("cl_dejavu_text_color_g", 0x00, "Text color: Green", false);
+	CVar2WayBinding<int> textColorG =              CVar2WayBinding<int>(CVAR_TEXT_COLOR_GREEN, 0x00, "Text color: Green", false);
 	// DEPRECATED
 	[[deprecated("Use textColor instead")]]
-	CVar2WayBinding<int> textColorB =              CVar2WayBinding<int>("cl_dejavu_text_color_b", 0x00, "Text color: Blue", false);
-	CVar2WayBinding<LinearColor> textColor =       CVar2WayBinding<LinearColor>("cl_dejavu_text_color", LinearColor{ 0xff, 0xff, 0xff, 0xff }, "Text color");
+	CVar2WayBinding<int> textColorB =              CVar2WayBinding<int>(CVAR_TEXT_COLOR_BLUE, 0x00, "Text color: Blue", false);
+	CVar2WayBinding<LinearColor> textColor =       CVar2WayBinding<LinearColor>(CVAR_TEXT_COLOR, LinearColor{ 0xff, 0xff, 0xff, 0xff }, "Text color");
 
-	CVar2WayBinding<bool> enabledBackground =      CVar2WayBinding<bool>("cl_dejavu_background", true, "Enables background");
+	CVar2WayBinding<bool> enabledBackground =      CVar2WayBinding<bool>(CVAR_BACKGROUND, true, "Enables background");
 
 	// DEPRECATED
 	[[deprecated("Use backgroundColor instead")]]
-	CVar2WayBinding<int> backgroundColorR =        CVar2WayBinding<int>("cl_dejavu_background_color_r", 0x00, "Background color: Red", false);
+	CVar2WayBinding<int> backgroundColorR =        CVar2WayBinding<int>(CVAR_BACKGROUND_COLOR_RED, 0x00, "Background color: Red", false);
 	// DEPRECATED
 	[[deprecated("Use backgroundColor instead")]]
-	CVar2WayBinding<int> backgroundColorG =        CVar2WayBinding<int>("cl_dejavu_background_color_g", 0x00, "Background color: Green", false);
+	CVar2WayBinding<int> backgroundColorG =        CVar2WayBinding<int>(CVAR_BACKGROUND_COLOR_GREEN, 0x00, "Background color: Green", false);
 	// DEPRECATED
 	[[deprecated("Use backgroundColor instead")]]
-	CVar2WayBinding<int> backgroundColorB =        CVar2WayBinding<int>("cl_dejavu_background_color_b", 0x00, "Background color: Blue", false);
-	CVar2WayBinding<LinearColor> backgroundColor = CVar2WayBinding<LinearColor>("cl_dejavu_background_color", LinearColor{ 0x00, 0x00, 0x00, 0xff }, "Background color");
-
-	CVar2WayBinding<bool> hasUpgradedColors =      CVar2WayBinding<bool>("cl_dejavu_has_upgraded_colors", false, "Flag for upgrading colors", true);
+	CVar2WayBinding<int> backgroundColorB =        CVar2WayBinding<int>(CVAR_BACKGROUND_COLOR_BLUE, 0x00, "Background color: Blue", false);
+	CVar2WayBinding<LinearColor> backgroundColor = CVar2WayBinding<LinearColor>(CVAR_BACKGROUND_COLOR, LinearColor{ 0x00, 0x00, 0x00, 0xff }, "Background color");
+	CVar2WayBinding<bool> hasUpgradedColors =      CVar2WayBinding<bool>(CVAR_HAS_UPGRADED_COLORS, false, "Flag for upgrading colors", true);
 #pragma endregion cvars
 
 	json data;
@@ -231,12 +264,12 @@ private:
 	PriWrapper GetLocalPlayerPRI();
 
 	void CleanUpJson();
+	void GenerateSettingsFile();
 
 	template <class T>
 	CVarWrapper RegisterCVar(
 		const char* name,
 		const char* description,
-		//T defaultValue,
 		std::shared_ptr<T>& bindTo,
 		bool searchable = true,
 		bool hasMin = false,

@@ -1,8 +1,7 @@
+#include "pch.h"
 #include "DejaVu.h"
-#include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
 #include "vendor/imgui/imgui.h"
 #include "vendor/imgui/imgui_stdlib.h"
-#include <algorithm>
 #undef max
 
 void DejaVu::Render()
@@ -190,7 +189,7 @@ void DejaVu::Render()
 		this->playerIDsToDisplay[i++] = player.key();
 	}
 	this->playerIDsToDisplay.resize(i);
-	ImGuiListClipper clipper(this->playerIDsToDisplay.size());
+	ImGuiListClipper clipper((int)this->playerIDsToDisplay.size());
 	while (clipper.Step())
 	{
 		for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
@@ -275,8 +274,23 @@ void DejaVu::RenderEditNoteModal()
 				ImGui::GetWindowHeight() - 2 * ImGui::GetStyle().WindowPadding.y - ImGui::GetTextLineHeightWithSpacing() - 4 * ImGui::GetStyle().FramePadding.y - 4 * ImGui::GetStyle().ItemSpacing.y
 			);
 			if (ImGui::InputTextMultiline("##note", playerNote, textSize))
+			{
 				this->data["players"][this->playersNoteToEdit]["note"] = *playerNote;
-			//if (ImGui::IsAnyWindowFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0))
+				auto blueMember = std::find_if(this->blueTeamRenderData.begin(), this->blueTeamRenderData.end(), [this](const RenderData& renderData) {
+					return renderData.id == this->playersNoteToEdit;
+				});
+				if (blueMember != this->blueTeamRenderData.end())
+					(*blueMember).note = *playerNote;
+				else
+				{
+					auto orangeMember = std::find_if(this->orangeTeamRenderData.begin(), this->orangeTeamRenderData.end(), [this](const RenderData& renderData) {
+						return renderData.id == this->playersNoteToEdit;
+					});
+
+					if (orangeMember != this->orangeTeamRenderData.end())
+						(*orangeMember).note = *playerNote;
+				}
+			}
 			if (ImGui::IsWindowAppearing())
 				ImGui::SetKeyboardFocusHere();
 

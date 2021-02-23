@@ -1,11 +1,6 @@
+#include "pch.h"
 #include "DejaVu.h"
-#include <iomanip>
-#include <sstream>
-#include <fstream>
 
-#include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
-
-#include "CVar2WayBinding.h"
 
 /**
  * TODO
@@ -16,7 +11,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.5.0", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", PluginVersion, 0)
 
 // to_string overloads for cvars
 namespace std {
@@ -28,13 +23,15 @@ namespace std {
         sprintf(buf, "(%f, %f, %f, %f)", color.R, color.G, color.B, color.A);
         return buf;
 	}
+	string to_string(const Record& record) {
+		return to_string(record.wins) + ":" + to_string(record.losses);
+	}
 }
 
 template <class T>
 CVarWrapper DejaVu::RegisterCVar(
 	const char* name,
 	const char* description,
-	//T defaultValue,
 	std::shared_ptr<T>& bindTo,
 	bool searchable,
 	bool hasMin,
@@ -96,8 +93,6 @@ void DejaVu::CleanUpJson()
 
 void DejaVu::onLoad()
 {
-	SetupLogger(this->logPath.string(), true);
-	LOG(INFO) << "test log";
 	// At end of match in unranked when people leave and get replaced by bots the event fires and for some reason IsInOnlineGame turns back on
 	// Check 1v1. Player added event didn't fire after joining last
 	// Add debug
@@ -158,14 +153,22 @@ void DejaVu::onLoad()
 	}, "Tests cvar binding", PERMISSION_ALL);
 #endif DEV
 
+
+#pragma region register cvars
+
 	this->enabled.Register(this->cvarManager);
 
 	this->trackOpponents.Register(this->cvarManager);
 	this->trackTeammates.Register(this->cvarManager);
 	this->trackGrouped.Register(this->cvarManager);
 	this->showMetCount.Register(this->cvarManager);
+	this->showRecord.Register(this->cvarManager);
 
-	this->enabledVisuals.Register(this->cvarManager);
+	auto visualCVar = this->enabledVisuals.Register(this->cvarManager);
+	visualCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		if (!cvar.getBoolValue())
+			this->enabledDebug = false;
+	});
 	this->toggleWithScoreboard.Register(this->cvarManager);
 	this->showNotes.Register(this->cvarManager);
 
@@ -183,11 +186,11 @@ void DejaVu::onLoad()
 		this->orangeTeamRenderData.clear();
 
 		if (val) {
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 } });
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 } });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 }, "This guy was a great team player" });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 }, "Quick chat spammer" });
 			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonngggg name", 999, { 999, 999 } });
 			this->orangeTeamRenderData.push_back({ "0", "Orange Player 1", 5, { 5, 5 } });
-			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 } });
+			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 }, "Left early" });
 			//this->orangeTeamRenderData.push_back({ "0", "Orange Player 3", 999, { 999, 999 } });
 		}
 	});
@@ -229,6 +232,8 @@ void DejaVu::onLoad()
 
 		SetupLogger(this->logPath.string(), val);
 	});
+
+#pragma endregion register cvars
 
 	// I guess this doesn't fire for "you"
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerAdded", std::bind(&DejaVu::HandlePlayerAdded, this, std::placeholders::_1));
@@ -314,10 +319,13 @@ void DejaVu::onLoad()
 
 	LoadData();
 
+	GenerateSettingsFile();
+
 
 	this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
 		if (!*this->hasUpgradedColors)
 		{
+			LOG(INFO) << "Upgrading colors...";
 #pragma warning(suppress : 4996)
 			this->textColor = LinearColor{ (float)*this->textColorR, (float)*this->textColorG, (float)*this->textColorB, 0xff };
 #pragma warning(suppress : 4996)
@@ -327,7 +335,7 @@ void DejaVu::onLoad()
 		}
 
 		LOG(INFO) << "---DEJAVU LOADED---";
-	}, 0.001);
+	}, 0.001f);
 
 #if DEV
 	this->cvarManager->executeCommand("exec tmp.cfg");
@@ -643,8 +651,7 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 	auto server = GetCurrentServer();
 	auto myTeamNum = server.GetLocalPrimaryPlayer().GetPRI().GetTeamNum();
 	auto theirTeamNum = player.GetTeamNum();
-	unsigned char noTeamSet = -1;
-	if (myTeamNum == noTeamSet || theirTeamNum == noTeamSet)
+	if (myTeamNum == TEAM_NOT_SET || theirTeamNum == TEAM_NOT_SET)
 	{
 		LOG(INFO) << "No team set for " << player.GetPlayerName().ToString() << ", retrying in 5 seconds: " << (int)myTeamNum << ":" << (int)theirTeamNum;
 		// No team set. Try again in a couple seconds
@@ -673,10 +680,11 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 	Record record = GetRecord(uniqueIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
 	std::string playerName = player.GetPlayerName().ToString();
-	if (theirTeamNum == 0)
-		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record });
+	std::string playerNote = this->data["players"][uniqueIDStr].value("note", "");
+	if (theirTeamNum == TEAM_BLUE)
+		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, playerNote });
 	else
-		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record });
+		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, playerNote });
 }
 
 void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
@@ -897,10 +905,16 @@ bool DejaVu::IsInRealGame()
 	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay() && !this->gameWrapper->IsInFreeplay();
 }
 
+static float MetCountColumnWidth;
+static float RecordColumnWidth;
 void DejaVu::RenderDrawable(CanvasWrapper canvas)
 {
 	if (!Canvas::IsContextSet())
+	{
 		Canvas::SetContext(canvas);
+		MetCountColumnWidth = Canvas::GetStringWidth("999") + 11;
+		RecordColumnWidth = Canvas::GetStringWidth("999:999") + 11;
+	}
 	Canvas::SetGlobalAlpha((char)(*this->alpha * 255));
 	Canvas::SetScale(*this->scale);
 
@@ -941,24 +955,35 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		orangeSize++;
 	}
 
-	int yOffset = 3;
-	int totalHeight = (blueSize + orangeSize) * Canvas::GetTableRowHeight() + 7 * 2 + yOffset;
-	//                                                                        ^^^^^
-	//                                                                  borderless padding
+	float yOffset = 3.0f;
+	float totalHeight = (blueSize + orangeSize) * Canvas::GetTableRowHeight() + 7 * 2 + yOffset - 1;
+	//                                                                          ^^^^^
+	//                                                                    borderless padding
 
 	Vector2 canvasSize = Canvas::GetSize();
-	int tableWidth = 200;
+	float tableWidth = 150;
+	if (*this->showMetCount)
+		tableWidth += MetCountColumnWidth;
+	if (*this->showRecord)
+		tableWidth += RecordColumnWidth;
 	if (*this->showNotes)
-		tableWidth += 100;
-	int width = (int)((canvasSize.X - tableWidth * *this->scale) * *this->width) + tableWidth * *this->scale;
+		tableWidth += 150;
+	float width = ((canvasSize.X - tableWidth * *this->scale) * *this->width) + tableWidth * *this->scale;
 
-	int maxX = canvasSize.X - width;
-	int maxY = canvasSize.Y - totalHeight;
+	float maxX = canvasSize.X - width;
+	float maxY = canvasSize.Y - totalHeight;
 
 	std::vector<Canvas::CanvasColumnOptions> columnOptions{
 		{ Canvas::Alignment::LEFT },
-		{ Canvas::Alignment::RIGHT, (int)(*this->showMetCount ? Canvas::GetStringWidth("999") : Canvas::GetStringWidth("999:999")) + 11 },
 	};
+
+	//TODO: allow setting a max width for a column (for the name column)
+	//TODO: allow toggling table borders (and fix sizing of tables while borders are active)
+	if (*this->showMetCount)
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, MetCountColumnWidth });
+
+	if (*this->showRecord)
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth });
 
 	if (*this->showNotes)
 		columnOptions.push_back({ Canvas::Alignment::LEFT });
@@ -975,7 +1000,7 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	Canvas::SetPosition(*this->xPos * maxX, *this->yPos * maxY);
 	RenderUI(this->blueTeamRenderData, tableOptions, columnOptions, renderPlayerBlue);
 
-	Canvas::SetPosition(Canvas::GetPosition() + Vector2{ 0, yOffset });
+	Canvas::SetPosition(Canvas::GetPositionFloat() + Vector2F{ 0, yOffset });
 	RenderUI(this->orangeTeamRenderData, tableOptions, columnOptions, renderPlayerOrange);
 }
 
@@ -992,11 +1017,17 @@ void DejaVu::RenderUI(const std::vector<RenderData>& renderData, const Canvas::C
 	for (const auto& player : renderData)
 	{
 		std::string playerName = player.name;
-		std::string note = this->data["players"][player.id].value("note", "");
-		// Only show * if showing record, we've met them, and record is 0:0
+		// Only show * if not showing met count, we've met them, and record is 0:0
 		if (!*this->showMetCount && player.metCount > 1 && (player.record.wins == 0 && player.record.losses == 0))
 			playerName += "*";
-		Canvas::Row({ playerName, *this->showMetCount ? std::to_string(player.metCount) : (std::to_string(player.record.wins) + ":" + std::to_string(player.record.losses)), note });
+		std::vector<std::string> rowData{ playerName };
+		if (*this->showMetCount)
+			rowData.push_back(std::to_string(player.metCount));
+		if (*this->showRecord)
+			rowData.push_back(std::to_string(player.record));
+		if (*this->showNotes)
+			rowData.push_back(player.note);
+		Canvas::Row(rowData);
 	}
 
 	Canvas::EndTable();

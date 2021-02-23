@@ -1,9 +1,5 @@
 #pragma once
 
-#include <string>
-#include <memory>
-#include <type_traits>
-
 #include "bakkesmodsdk/include/bakkesmod/wrappers/cvarmanagerwrapper.h"
 
 template <class T>

@@ -11,26 +11,20 @@ Deja Vu
 
 10|cl_dejavu_visuals
 1|Toggle with scoreboard (instead of always on)|cl_dejavu_toggle_with_scoreboard
-1|Show player notes in match|cl_dejavu_show_player_notes
+1|Show player notes|cl_dejavu_show_player_notes
 1|Show met count (instead of your record)|cl_dejavu_show_metcount
 1|Enable debug view (for visual settings)|cl_dejavu_debug
 
-5|Scale|cl_dejavu_scale|1|4
+4|Scale|cl_dejavu_scale|1|4
 4|Alpha|cl_dejavu_alpha|0|1
 4|X Pos|cl_dejavu_xpos|0|1
 4|Y Pos|cl_dejavu_ypos|0|1
 4|Width|cl_dejavu_width|0|1
 
-9|Text Color
-5|Text Red|cl_dejavu_text_color_r|0|255
-5|Text Green|cl_dejavu_text_color_g|0|255
-5|Text Blue|cl_dejavu_text_color_b|0|255
+13|Text Color|cl_dejavu_text_color
 
 1|Enable background|cl_dejavu_background
-9|Background Color
-5|Background Red|cl_dejavu_background_color_r|0|255
-5|Background Green|cl_dejavu_background_color_g|0|255
-5|Background Blue|cl_dejavu_background_color_b|0|255
+13|Background Color|cl_dejavu_background_color
 
 11|
 
