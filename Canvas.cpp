@@ -296,7 +296,7 @@ void Canvas::EndTable()
 		SetColor(GCanvas->tableContext.tableOptions.borderColor);
 		// For some reason vertical lines draw x-1 and horizontal lines draw y-1
 		DrawLine(Vector2F{ pos.X + 1, pos.Y }, { pos.X + 1, maxY });
-		DrawLine(Vector2F{ pos.X, pos.Y + 1 }, { maxX, pos.Y + 1 });
+		DrawLine(Vector2F{ pos.X, pos.Y + 0 }, { maxX, pos.Y + 0 });
 	}
 
 	// Draw data

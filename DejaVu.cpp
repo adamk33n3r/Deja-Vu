@@ -214,6 +214,9 @@ void DejaVu::onLoad()
 	this->textColorB.Register(this->cvarManager);
 	this->textColor.Register(this->cvarManager);
 
+	this->enabledBorders.Register(this->cvarManager);
+	this->borderColor.Register(this->cvarManager);
+
 	this->enabledBackground.Register(this->cvarManager);
 
 #pragma warning(suppress : 4996)
@@ -955,8 +958,8 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		orangeSize++;
 	}
 
-	float yOffset = 3.0f;
-	float totalHeight = (blueSize + orangeSize) * Canvas::GetTableRowHeight() + 7 * 2 + yOffset - 1;
+	float yOffset = 3.0f + *this->enabledBorders * 2;
+	float totalHeight = (blueSize + orangeSize) * Canvas::GetTableRowHeight() + (7 * 2 * !*this->enabledBorders) + yOffset - !*this->enabledBorders;
 	//                                                                          ^^^^^
 	//                                                                    borderless padding
 
@@ -978,12 +981,11 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	};
 
 	//TODO: allow setting a max width for a column (for the name column)
-	//TODO: allow toggling table borders (and fix sizing of tables while borders are active)
 	if (*this->showMetCount)
-		columnOptions.push_back({ Canvas::Alignment::RIGHT, MetCountColumnWidth });
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, MetCountColumnWidth * *this->scale });
 
 	if (*this->showRecord)
-		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth });
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth * *this->scale });
 
 	if (*this->showNotes)
 		columnOptions.push_back({ Canvas::Alignment::LEFT });
@@ -992,15 +994,15 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		Canvas::to_color(*this->textColor),
 		*this->enabledBackground,
 		Canvas::to_color(*this->backgroundColor),
-		false,
-		Canvas::Color::WHITE,
+		*this->enabledBorders,
+		Canvas::to_color(*this->borderColor),
 		width,
 	};
 
 	Canvas::SetPosition(*this->xPos * maxX, *this->yPos * maxY);
 	RenderUI(this->blueTeamRenderData, tableOptions, columnOptions, renderPlayerBlue);
 
-	Canvas::SetPosition(Canvas::GetPositionFloat() + Vector2F{ 0, yOffset });
+	Canvas::SetPosition(Canvas::GetPositionFloat() + Vector2F{ 0, yOffset - 1 });
 	RenderUI(this->orangeTeamRenderData, tableOptions, columnOptions, renderPlayerOrange);
 }
 

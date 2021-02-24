@@ -39,6 +39,8 @@ constexpr auto CVAR_TEXT_COLOR_RED = "cl_dejavu_text_color_r";
 constexpr auto CVAR_TEXT_COLOR_GREEN = "cl_dejavu_text_color_g";
 constexpr auto CVAR_TEXT_COLOR_BLUE = "cl_dejavu_text_color_b";
 constexpr auto CVAR_TEXT_COLOR = "cl_dejavu_text_color";
+constexpr auto CVAR_BORDERS = "cl_dejavu_borders";
+constexpr auto CVAR_BORDER_COLOR = "cl_dejavu_border_color";
 constexpr auto CVAR_BACKGROUND = "cl_dejavu_background";
 constexpr auto CVAR_BACKGROUND_COLOR_RED = "cl_dejavu_background_color_r";
 constexpr auto CVAR_BACKGROUND_COLOR_GREEN = "cl_dejavu_background_color_g";
@@ -204,6 +206,9 @@ private:
 	[[deprecated("Use textColor instead")]]
 	CVar2WayBinding<int> textColorB =              CVar2WayBinding<int>(CVAR_TEXT_COLOR_BLUE, 0x00, "Text color: Blue", false);
 	CVar2WayBinding<LinearColor> textColor =       CVar2WayBinding<LinearColor>(CVAR_TEXT_COLOR, LinearColor{ 0xff, 0xff, 0xff, 0xff }, "Text color");
+
+	CVar2WayBinding<bool> enabledBorders =         CVar2WayBinding<bool>(CVAR_BORDERS, false, "Enables borders");
+	CVar2WayBinding<LinearColor> borderColor =     CVar2WayBinding<LinearColor>(CVAR_BORDER_COLOR, LinearColor{ 0xff, 0xff, 0xff, 0xff }, "Border color");
 
 	CVar2WayBinding<bool> enabledBackground =      CVar2WayBinding<bool>(CVAR_BACKGROUND, true, "Enables background");
 

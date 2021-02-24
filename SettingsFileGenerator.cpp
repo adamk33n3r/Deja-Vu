@@ -58,8 +58,13 @@ void DejaVu::GenerateSettingsFile()
 
 	separator;
 	text("Colors");
-	checkbox("Enable background", CVAR_BACKGROUND);
 	color("Text color", CVAR_TEXT_COLOR);
+	checkbox("Enable borders", CVAR_BORDERS);
+	sameline;
+	greyedStart(CVAR_BORDERS);
+	color("Border color", CVAR_BORDER_COLOR);
+	greyedEnd;
+	checkbox("Enable background", CVAR_BACKGROUND);
 	sameline;
 	greyedStart(CVAR_BACKGROUND);
 	color("Background color", CVAR_BACKGROUND_COLOR);
