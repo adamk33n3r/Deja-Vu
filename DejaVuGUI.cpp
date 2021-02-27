@@ -31,9 +31,9 @@ void DejaVu::Render()
 		const std::set<std::string>& matchMetList = this->matchesMetLists[curMatchGUID.value()];
 #endif DEV
 			
-		ImGui::OpenPopup("LaunchQuickNoteModal");
+		ImGui::OpenPopup("Quick Note");
 		ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y / 4), ImGuiCond_Appearing);
-		if (ImGui::BeginPopupModal("LaunchQuickNoteModal"))
+		if (ImGui::BeginPopupModal("Quick Note"))
 		{
 			float reserveHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
 			ImGui::BeginChild("#dejavu_quick_note", ImVec2(0, -reserveHeight));

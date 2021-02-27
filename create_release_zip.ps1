@@ -10,7 +10,9 @@ function IsInteractive {
 }
 
 $matchInfo = Select-String -Path .\Version.h -Pattern 'VERSION_.* (.+)'
-$versionString = $matchInfo.Matches.Groups[1].Value + '.' + $matchInfo.Matches.Groups[3].Value + '.' + $matchInfo.Matches.Groups[5].Value + '.' + $matchInfo.Matches.Groups[7].Value + $matchInfo.Matches.Groups[9].Value
+$phaseDefine = $matchInfo.Matches.Groups[9].Value
+$phaseMatchInfo = Select-String -Path .\Version.h -Pattern ($phaseDefine + ' (.+)')
+$versionString = $matchInfo.Matches.Groups[1].Value + '.' + $matchInfo.Matches.Groups[3].Value + '.' + $matchInfo.Matches.Groups[5].Value + '.' + $matchInfo.Matches.Groups[7].Value + $phaseMatchInfo.Matches.Groups[1].Value
 Write-Output "Creating build version: $versionString"
 
 $buildDir = (Get-Location).ToString() + '\zipDir'

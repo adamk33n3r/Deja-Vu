@@ -28,36 +28,6 @@ namespace std {
 	}
 }
 
-template <class T>
-CVarWrapper DejaVu::RegisterCVar(
-	const char* name,
-	const char* description,
-	std::shared_ptr<T>& bindTo,
-	bool searchable,
-	bool hasMin,
-	float min,
-	bool hasMax,
-	float max,
-	bool saveToCfg
-)
-{
-	CVarWrapper cvar = this->cvarManager->registerCvar(
-		name,
-		"",
-		description,
-		searchable,
-		hasMin,
-		min,
-		hasMax,
-		max,
-		saveToCfg
-	);
-	cvar.setValue(*bindTo);
-	cvar.bindTo(bindTo);
-
-	return cvar;
-}
-
 void SetupLogger(std::string logPath, bool enabled)
 {
 	el::Configurations defaultConf;
@@ -234,6 +204,21 @@ void DejaVu::onLoad()
 		bool val = cvar.getBoolValue();
 
 		SetupLogger(this->logPath.string(), val);
+	});
+
+	this->mainGUIKeybind.Register(this->cvarManager).addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		std::string newBind = cvar.getStringValue();
+		if (!oldValue.empty() && oldValue != "None")
+			this->cvarManager->executeCommand("unbind " + oldValue, false);
+		if (newBind != "None")
+			this->cvarManager->setBind(newBind, "togglemenu dejavu");
+	});
+	this->quickNoteKeybind.Register(this->cvarManager).addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		std::string newBind = cvar.getStringValue();
+		if (!oldValue.empty() && oldValue != "None")
+			this->cvarManager->executeCommand("unbind " + oldValue, false);
+		if (newBind != "None")
+			this->cvarManager->setBind(newBind, "dejavu_launch_quick_note");
 	});
 
 #pragma endregion register cvars
@@ -977,10 +962,12 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	float maxY = canvasSize.Y - totalHeight;
 
 	std::vector<Canvas::CanvasColumnOptions> columnOptions{
-		{ Canvas::Alignment::LEFT },
+		{ Canvas::Alignment::LEFT, 0 },
 	};
 
-	//TODO: allow setting a max width for a column (for the name column)
+	if (*this->showNotes)
+		columnOptions[0].maxWidth = 250.0f;
+
 	if (*this->showMetCount)
 		columnOptions.push_back({ Canvas::Alignment::RIGHT, MetCountColumnWidth * *this->scale });
 
@@ -1002,7 +989,7 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	Canvas::SetPosition(*this->xPos * maxX, *this->yPos * maxY);
 	RenderUI(this->blueTeamRenderData, tableOptions, columnOptions, renderPlayerBlue);
 
-	Canvas::SetPosition(Canvas::GetPositionFloat() + Vector2F{ 0, yOffset - 1 });
+	Canvas::SetPosition(Canvas::GetPositionFloat() + Vector2F{ 0, yOffset });
 	RenderUI(this->orangeTeamRenderData, tableOptions, columnOptions, renderPlayerOrange);
 }
 

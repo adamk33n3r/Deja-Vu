@@ -213,6 +213,17 @@ void Canvas::Row(const std::vector<std::string>& rowData)
 	GCanvas->tableContext.rows.push_back(rowData);
 }
 
+void CalculateAutoWidths(std::vector<float>& colSizes, int startIdx, int numCols, float remainingWidth)
+{
+		float distWidth = remainingWidth / numCols;
+		for (int i = startIdx; i < colSizes.size(); i++)
+		{
+			const auto& colOpt = GCanvas->tableContext.columnOptions[i];
+			if (colOpt.width == 0)
+				colSizes[i] = distWidth;
+		}
+}
+
 void Canvas::EndTable()
 {
 	CHECK_CTX;
@@ -235,7 +246,7 @@ void Canvas::EndTable()
 		int colNum = 0;
 		int numFixedCols = 0;
 		float totalSetWidths = 0;
-		for (auto& colOpt : GCanvas->tableContext.columnOptions)
+		for (const auto& colOpt : GCanvas->tableContext.columnOptions)
 		{
 			if (colOpt.width > 0)
 			{
@@ -246,13 +257,19 @@ void Canvas::EndTable()
 		}
 		float remainingWidth = std::max(GCanvas->tableContext.tableOptions.width - totalSetWidths, 0.0f);
 		float newColWidth = remainingWidth / (GCanvas->tableContext.totalCols - numFixedCols);
-		//float colRemainder = remainingWidth % (GCanvas->tableContext.totalCols - numFixedCols);
-		for (auto& colSize : colSizes)
+		int numAutoCols = GCanvas->tableContext.totalCols - numFixedCols;
+		CalculateAutoWidths(colSizes, 0, numAutoCols, remainingWidth);
+		int i = 0;
+		for (const auto& colOpt : GCanvas->tableContext.columnOptions)
 		{
-			if (colSize == 0)
-				colSize = remainingWidth / (GCanvas->tableContext.totalCols - numFixedCols);
+			if (colOpt.maxWidth.has_value() && colOpt.maxWidth.value() < colSizes[i])
+			{
+				colSizes[i] = colOpt.maxWidth.value();
+				remainingWidth -= colSizes[i];
+				CalculateAutoWidths(colSizes, i + 1, --numAutoCols, remainingWidth);
+			}
+			i++;
 		}
-		//colSizes[colSizes.size() - 1] += colRemainder;
 	}
 	// Expand to fit columns
 	else

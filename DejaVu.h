@@ -47,6 +47,8 @@ constexpr auto CVAR_BACKGROUND_COLOR_GREEN = "cl_dejavu_background_color_g";
 constexpr auto CVAR_BACKGROUND_COLOR_BLUE = "cl_dejavu_background_color_b";
 constexpr auto CVAR_BACKGROUND_COLOR = "cl_dejavu_background_color";
 constexpr auto CVAR_HAS_UPGRADED_COLORS = "cl_dejavu_has_upgraded_colors";
+constexpr auto CVAR_KEYBIND_MAIN_GUI = "cl_dejavu_keybind_main_gui";
+constexpr auto CVAR_KEYBIND_QUICK_NOTE = "cl_dejavu_keybind_quick_note";
 
 #define PLAYLISTS \
 X(NONE, -1) \
@@ -223,6 +225,9 @@ private:
 	CVar2WayBinding<int> backgroundColorB =        CVar2WayBinding<int>(CVAR_BACKGROUND_COLOR_BLUE, 0x00, "Background color: Blue", false);
 	CVar2WayBinding<LinearColor> backgroundColor = CVar2WayBinding<LinearColor>(CVAR_BACKGROUND_COLOR, LinearColor{ 0x00, 0x00, 0x00, 0xff }, "Background color");
 	CVar2WayBinding<bool> hasUpgradedColors =      CVar2WayBinding<bool>(CVAR_HAS_UPGRADED_COLORS, false, "Flag for upgrading colors", true);
+
+	CVar2WayBinding<std::string> mainGUIKeybind =  CVar2WayBinding<std::string>(CVAR_KEYBIND_MAIN_GUI, "None", "Main keybind");
+	CVar2WayBinding<std::string> quickNoteKeybind = CVar2WayBinding<std::string>(CVAR_KEYBIND_QUICK_NOTE, "None", "Quick note keybind");
 #pragma endregion cvars
 
 	json data;

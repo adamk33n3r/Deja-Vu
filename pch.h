@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <numeric>
+#include <optional>
 #include <assert.h>
 
 #include "vendor/json.hpp"

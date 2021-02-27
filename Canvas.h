@@ -37,6 +37,7 @@ namespace Canvas {
 	struct CanvasColumnOptions {
 		Alignment alignment = Alignment::LEFT;
 		float width = 0; // 0 for auto
+		std::optional<float> maxWidth;
 	};
 
 	struct CanvasTableOptions {
