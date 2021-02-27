@@ -8,7 +8,7 @@
 #define VERSION_MAJOR 2
 #define VERSION_MINOR 0
 #define VERSION_PATCH 0
-#define VERSION_BUILD 336
+#define VERSION_BUILD 347
 #define VERSION_PHASE PHASE_PRERELEASE
 
 #define stringify(a) stringify_(a)

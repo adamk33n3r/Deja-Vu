@@ -30,6 +30,7 @@ constexpr auto CVAR_DEBUG = "cl_dejavu_debug";
 constexpr auto CVAR_LOG = "cl_dejavu_log";
 constexpr auto CVAR_SHOW_MET_COUNT = "cl_dejavu_show_metcount";
 constexpr auto CVAR_SHOW_RECORD = "cl_dejavu_show_record";
+constexpr auto CVAR_SHOW_ALL_PLAYLISTS_RECORD = "cl_dejavu_show_all_playlists_record";
 constexpr auto CVAR_SCALE = "cl_dejavu_scale";
 constexpr auto CVAR_ALPHA = "cl_dejavu_alpha";
 constexpr auto CVAR_XPOS = "cl_dejavu_xpos";
@@ -51,7 +52,7 @@ constexpr auto CVAR_KEYBIND_MAIN_GUI = "cl_dejavu_keybind_main_gui";
 constexpr auto CVAR_KEYBIND_QUICK_NOTE = "cl_dejavu_keybind_quick_note";
 
 #define PLAYLISTS \
-X(NONE, -1) \
+X(ANY, -1) \
 X(Duel, 1) \
 X(Doubles, 2) \
 X(Standard, 3) \
@@ -192,6 +193,7 @@ private:
 	CVar2WayBinding<bool> enabledLog =             CVar2WayBinding<bool>(CVAR_LOG, false, "Enables logging");
 	CVar2WayBinding<bool> showMetCount =           CVar2WayBinding<bool>(CVAR_SHOW_MET_COUNT, true, "Show the met count");
 	CVar2WayBinding<bool> showRecord =             CVar2WayBinding<bool>(CVAR_SHOW_RECORD, false, "Show the record");
+	CVar2WayBinding<bool> showAllPlaylistsRecord = CVar2WayBinding<bool>(CVAR_SHOW_ALL_PLAYLISTS_RECORD, false, "Show record over all playlists");
 	CVar2WayBinding<float> scale =                 CVar2WayBinding<float>(CVAR_SCALE, 1.0f, "Scale of visuals", true, true, 0.0f, true, 4.0f);
 	CVar2WayBinding<float> alpha =                 CVar2WayBinding<float>(CVAR_ALPHA, 0.75f, "Alpha of visuals", true, true, 0.0f, true, 1.0f);
 	CVar2WayBinding<float> xPos =                  CVar2WayBinding<float>(CVAR_XPOS, 0.0f, "X position of visuals", true, true, 0.0f, true, 1.0f);
@@ -259,9 +261,8 @@ private:
 	void WriteData();
 	void Reset();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
-	Record GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side);
+	Record GetRecord(UniqueIDWrapper uniqueID, Playlist playlist, Side side);
 	Record GetRecord(std::string uniqueID, Playlist playlist, Side side);
-	Record GetRecord(std::string uniqueID, int playlist, Side side);
 	void SetRecord();
 	void RenderUI(const std::vector<RenderData>& renderData, const Canvas::CanvasTableOptions& tableOptions, const std::vector<Canvas::CanvasColumnOptions>& columnOptions, const bool renderPlayer);
 	void AddPlayerToRenderData(PriWrapper player);

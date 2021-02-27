@@ -112,13 +112,13 @@ void DejaVu::Render()
 
 	static const char* items[]{"Apple", "Banana", "Orange"};
 
-	static Playlist selectedPlaylist = Playlist::NONE;
+	static Playlist selectedPlaylist = Playlist::ANY;
 
 	//ImGui::ListBox("Fruit", &this->gui_selectedPlaylist, this->playlists, 2);
 	//ImGui::ListBox("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 	//ImGui::Combo("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 
-	const char* preview = (selectedPlaylist != Playlist::NONE) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
+	const char* preview = (selectedPlaylist != Playlist::ANY) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
 
 	if (ImGui::BeginCombo("Playlist Filter", preview))
 	{
@@ -168,7 +168,7 @@ void DejaVu::Render()
 	this->playerIDsToDisplay.resize(this->data["players"].size());
 	for (auto& player : this->data["players"].items())
 	{
-		if (selectedPlaylist != Playlist::NONE && (!player.value()["playlistData"].contains(selectedPlaylistIDStr) || player.value()["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
+		if (selectedPlaylist != Playlist::ANY && (!player.value()["playlistData"].contains(selectedPlaylistIDStr) || player.value()["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
 			continue;
 		std::string name;
 		try {

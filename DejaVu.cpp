@@ -26,6 +26,9 @@ namespace std {
 	string to_string(const Record& record) {
 		return to_string(record.wins) + ":" + to_string(record.losses);
 	}
+	string to_string(const Playlist& playlist) {
+		return to_string(playlist);
+	}
 }
 
 void SetupLogger(std::string logPath, bool enabled)
@@ -133,6 +136,28 @@ void DejaVu::onLoad()
 	this->trackGrouped.Register(this->cvarManager);
 	this->showMetCount.Register(this->cvarManager);
 	this->showRecord.Register(this->cvarManager);
+	this->showAllPlaylistsRecord.Register(this->cvarManager).addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		if (*this->enabledDebug || !IsInRealGame())
+			return;
+		auto server = GetCurrentServer();
+		if (server.IsNull())
+			return;
+		auto myTeamNum = server.GetLocalPrimaryPlayer().GetPRI().GetTeamNum();
+		for (auto& blue : this->blueTeamRenderData) {
+			if (!this->currentMatchPRIs.count(blue.id))
+				continue;
+			auto theirTeamNum = this->currentMatchPRIs.at(blue.id).GetTeamNum();
+			bool sameTeam = theirTeamNum == myTeamNum;
+			blue.record = GetRecord(blue.id, cvar.getBoolValue() ? Playlist::ANY : static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
+		}
+		for (auto& orange : this->orangeTeamRenderData) {
+			if (!this->currentMatchPRIs.count(orange.id))
+				continue;
+			auto theirTeamNum = this->currentMatchPRIs.at(orange.id).GetTeamNum();
+			bool sameTeam = theirTeamNum == myTeamNum;
+			orange.record = GetRecord(orange.id, cvar.getBoolValue() ? Playlist::ANY : static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
+		}
+	});
 
 	auto visualCVar = this->enabledVisuals.Register(this->cvarManager);
 	visualCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
@@ -665,7 +690,7 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 		LOG(INFO) << e.what();
 	}
 	bool sameTeam = theirTeamNum == myTeamNum;
-	Record record = GetRecord(uniqueIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
+	Record record = GetRecord(uniqueIDStr, *this->showAllPlaylistsRecord ? Playlist::ANY : static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
 	std::string playerName = player.GetPlayerName().ToString();
 	std::string playerNote = this->data["players"][uniqueIDStr].value("note", "");
@@ -780,17 +805,12 @@ void DejaVu::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet)
 	}, 5);
 }
 
-Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side)
+Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, Playlist playlist, Side side)
 {
 	return GetRecord(uniqueID.str(), playlist, side);
 }
 
 Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
-{
-	return GetRecord(uniqueID, static_cast<int>(playlist), side);
-}
-
-Record DejaVu::GetRecord(std::string uniqueID, int playlist, Side side)
 {
 	std::string sideStr;
 	if (side == Side::Same)
@@ -805,12 +825,12 @@ Record DejaVu::GetRecord(std::string uniqueID, int playlist, Side side)
 		return { 0, 0 };
 	json data = playerData["playlistData"];
 
-	if (playlist == -1)
+	if (playlist == Playlist::ANY)
 	{
 		Record combinedRecord{};
 		for (auto it = data.begin(); it != data.end(); ++it)
 		{
-			auto temp = GetRecord(uniqueID, std::stoi(it.key()), side);
+			auto temp = GetRecord(uniqueID, static_cast<Playlist>(std::stoi(it.key())), side);
 			combinedRecord.wins += temp.wins;
 			combinedRecord.losses += temp.losses;
 		}
@@ -818,9 +838,11 @@ Record DejaVu::GetRecord(std::string uniqueID, int playlist, Side side)
 		return combinedRecord;
 	}
 
-	if (!data.contains(std::to_string(playlist)))
+	std::string playlistIdxStr = std::to_string(playlist);
+
+	if (!data.contains(playlistIdxStr))
 		return { 0, 0 };
-	json recordJson = data[std::to_string(playlist)]["records"];
+	json recordJson = data[playlistIdxStr]["records"];
 	if (recordJson.contains(sideStr))
 	{
 		try
@@ -871,7 +893,7 @@ void DejaVu::SetRecord()
 
 		bool sameTeam = player.GetTeamNum() == localPRI.GetTeamNum();
 
-		int playlist = server.GetPlaylist().GetPlaylistId();
+		Playlist playlist = static_cast<Playlist>(server.GetPlaylist().GetPlaylistId());
 		Record record = GetRecord(uniqueIDStr, playlist, sameTeam ? Side::Same : Side::Other);
 		if (myTeamWon)
 			record.wins++;
