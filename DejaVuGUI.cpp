@@ -17,18 +17,17 @@ void DejaVu::Render()
 	{
 #if DEV
 		std::set<std::string> matchMetList = { "0" };
-		auto curMatchGUID = GetMatchGUID();
-		if (curMatchGUID.has_value())
-			matchMetList = this->matchesMetLists[curMatchGUID.value()];
+		if (this->curMatchGUID.has_value())
+			matchMetList = this->matchesMetLists[this->curMatchGUID.value()];
 #else
-		auto curMatchGUID = GetMatchGUID();
-		if (!curMatchGUID.has_value())
+		if (!this->curMatchGUID.has_value())
 		{
+			LOG(INFO) << "Closing quick note because there is no match guid";
 			this->openQuickNote = false;
 			return;
 		}
 
-		const std::set<std::string>& matchMetList = this->matchesMetLists[curMatchGUID.value()];
+		const std::set<std::string>& matchMetList = this->matchesMetLists[this->curMatchGUID.value()];
 #endif DEV
 			
 		ImGui::OpenPopup("Quick Note");
@@ -258,7 +257,7 @@ void DejaVu::RenderEditNoteModal()
 	ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 3, ImGui::GetIO().DisplaySize.y / 3), ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Edit note"))
 	{
-		if (false && this->playersNoteToEdit.empty())
+		if (this->playersNoteToEdit.empty())
 		{
 			ImGui::CloseCurrentPopup();
 		}

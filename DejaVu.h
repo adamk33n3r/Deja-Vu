@@ -251,6 +251,7 @@ private:
 	MMRWrapper mmrWrapper;
 	bool gameIsOver = false;
 	bool isScoreboardOpen = false;
+	std::optional<std::string> curMatchGUID;
 
 	std::map<std::string, PriWrapper> currentMatchPRIs;
 	std::map<std::string, std::set<std::string>> matchesMetLists;

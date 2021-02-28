@@ -22,6 +22,8 @@ void DejaVu::GenerateSettingsFile()
 
 	setFile << "Deja Vu\n";
 	checkbox("Enable plugin", CVAR_ENABLED);
+	sameline;
+	checkbox("Enable logging", CVAR_LOG);
 
 	blank;
 	separator;

@@ -503,11 +503,12 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 		return;
 	if (server.IsPlayingPrivate())
 		return;
-	std::string matchGUID = server.GetMatchGUID();
-	LOG(INFO) << "Match GUID: " << matchGUID;
-	// Too early I guess, so bail since we need the match guid for tracking
-	if (matchGUID == "No worldInfo")
+	auto matchGUID = GetMatchGUID();
+	if (!matchGUID.has_value())
 		return;
+	LOG(INFO) << "Match GUID: " << matchGUID.value();
+	if (!this->curMatchGUID.has_value())
+		this->curMatchGUID = matchGUID;
 	MMRWrapper mw = this->gameWrapper->GetMMRWrapper();
 	ArrayWrapper<PriWrapper> pris = server.GetPRIs();
 
@@ -580,10 +581,10 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 			//GetAndSetMetMMR(uniqueID, curPlaylist, uniqueID);
 
 			// Only do met count logic if we haven't yet
-			if (this->matchesMetLists[matchGUID].count(uniqueIDStr) == 0)
+			if (this->matchesMetLists[this->curMatchGUID.value()].count(uniqueIDStr) == 0)
 			{
 				LOG(INFO) << "Haven't processed yet: " << playerName;
-				this->matchesMetLists[matchGUID].emplace(uniqueIDStr);
+				this->matchesMetLists[this->curMatchGUID.value()].emplace(uniqueIDStr);
 				int metCount = 0;
 				if (!this->data["players"].contains(uniqueIDStr))
 				{
@@ -734,6 +735,7 @@ void DejaVu::HandleGameStart(std::string eventName)
 	LOG(INFO) << eventName;
 	Reset();
 	this->cvarManager->getCvar("cl_dejavu_debug").setValue(false);
+	this->curMatchGUID = GetMatchGUID();
 }
 
 void DejaVu::HandleGameEnd(std::string eventName)
@@ -750,6 +752,7 @@ void DejaVu::HandleGameLeave(std::string eventName)
 	LOG(INFO) << eventName;
 	WriteData();
 	Reset();
+	this->curMatchGUID = std::nullopt;
 }
 
 void DejaVu::Reset()
