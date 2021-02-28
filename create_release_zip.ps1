@@ -50,6 +50,7 @@ try {
     $fileList = (
         '.\Canvas.cpp',
         '.\Canvas.h',
+        '.\CVar2WayBinding.h',
         '.\Deja Vu.filters',
         '.\Deja Vu.sln',
         '.\Deja Vu.vcxproj',
@@ -57,8 +58,12 @@ try {
         '.\DejaVu.cpp',
         '.\DejaVu.h',
         '.\DejaVuGUI.cpp',
+        '.\pch.cpp',
+        '.\pch.h',
+        '.\SettingsFileGenerator.cpp',
         '.\LICENSE',
-        '.\RuleSet.ruleset'
+        '.\RuleSet.ruleset',
+        '.\Version.h'
     )
     foreach ($file in $fileList) {
         Copy-Item $file -Destination $buildDir\source
