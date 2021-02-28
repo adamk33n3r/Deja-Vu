@@ -1,82 +1,34 @@
+#include "pch.h"
 #include "DejaVu.h"
-#include <iomanip>
-#include <sstream>
-#include <fstream>
 
-#include "vendor\easyloggingpp-9.96.7\src\easylogging++.h"
-
-#define DEV 0
 
 /**
  * TODO
  * - Add option to show total record across all playlists
+ * - Create 2-way cvar binding
  * - IMGUI stuff
  */
 
 INITIALIZE_EASYLOGGINGPP
 
-BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", "1.5.0", 0)
+BAKKESMOD_PLUGIN(DejaVu, "Deja Vu", PluginVersion, 0)
 
-template <class T>
-CVarWrapper DejaVu::RegisterCVar(
-	const char* name,
-	const char* description,
-	T defaultValue,
-	std::shared_ptr<T>& bindTo,
-	bool searchable,
-	bool hasMin,
-	float min,
-	bool hasMax,
-	float max,
-	bool saveToCfg
-)
-{
-	bindTo = std::make_shared<T>(defaultValue);
-	CVarWrapper cvar = this->cvarManager->registerCvar(
-		name,
-		std::to_string(defaultValue),
-		description,
-		searchable,
-		hasMin,
-		min,
-		hasMax,
-		max,
-		saveToCfg
-	);
-	cvar.bindTo(bindTo);
-
-	return cvar;
-}
-
-template <>
-CVarWrapper DejaVu::RegisterCVar(
-	const char* name,
-	const char* description,
-	std::string defaultValue,
-	std::shared_ptr<std::string>& bindTo,
-	bool searchable,
-	bool hasMin,
-	float min,
-	bool hasMax,
-	float max,
-	bool saveToCfg
-)
-{
-	bindTo = std::make_shared<std::string>(defaultValue);
-	CVarWrapper cvar = this->cvarManager->registerCvar(
-		name,
-		defaultValue,
-		description,
-		searchable,
-		hasMin,
-		min,
-		hasMax,
-		max,
-		saveToCfg
-	);
-	cvar.bindTo(bindTo);
-
-	return cvar;
+// to_string overloads for cvars
+namespace std {
+	inline string to_string(const std::string& str) {
+		return str;
+	}
+	string to_string(const LinearColor& color) {
+        char buf[49];
+        sprintf(buf, "(%f, %f, %f, %f)", color.R, color.G, color.B, color.A);
+        return buf;
+	}
+	string to_string(const Record& record) {
+		return to_string(record.wins) + ":" + to_string(record.losses);
+	}
+	string to_string(const Playlist& playlist) {
+		return to_string(static_cast<int>(playlist));
+	}
 }
 
 void SetupLogger(std::string logPath, bool enabled)
@@ -133,6 +85,13 @@ void DejaVu::onLoad()
 		HandlePlayerAdded("dejavu_track_current");
 	}, "Tracks current lobby", PERMISSION_ONLINE);
 
+	this->cvarManager->registerNotifier("dejavu_launch_quick_note", [this](const std::vector<std::string>& commands) {
+#if !DEV
+		if (IsInRealGame())
+#endif !DEV
+			LaunchQuickNoteModal();
+		}, "Launches the quick note modal", PERMISSION_ONLINE);
+
 #if DEV
 	this->cvarManager->registerNotifier("dejavu_test", [this](const std::vector<std::string>& commands) {
 		this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
@@ -145,36 +104,49 @@ void DejaVu::onLoad()
 	}, "Cleans up the json", PERMISSION_ALL);
 
 	this->cvarManager->registerNotifier("dejavu_dump_list", [this](const std::vector<std::string>& commands) {
-		if (this->matchPRIsMetList.size() == 0)
+		if (this->matchesMetLists.size() == 0)
 		{
 			this->cvarManager->log("No entries in list");
 			return;
 		}
 
-		for (auto match : this->matchPRIsMetList)
+		for (auto& match : this->matchesMetLists)
 		{
 			std::string guid = match.first;
 			this->cvarManager->log("For match GUID:" + guid);
-			auto set = match.second;
-			for (auto playerID : set)
+			auto& set = match.second;
+			for (auto& playerID : set)
 			{
 				this->cvarManager->log("    " + playerID);
 			}
 		}
 	}, "Dumps met list", PERMISSION_ALL);
+	this->cvarManager->registerNotifier("dejavu_test_cvar_binding", [this](const std::vector<std::string>& commands) {
+		this->enabledDebug = !*this->enabledDebug;
+	}, "Tests cvar binding", PERMISSION_ALL);
 #endif DEV
 
-	RegisterCVar("cl_dejavu_enable", "Enables plugin", true, this->enabled);
 
-	RegisterCVar("cl_dejavu_track_opponents", "Track players if opponents", true, this->trackOpponents);
-	RegisterCVar("cl_dejavu_track_teammates", "Track players if teammates", true, this->trackTeammates);
-	RegisterCVar("cl_dejavu_track_grouped", "Track players if in party", true, this->trackGrouped);
-	RegisterCVar("cl_dejavu_show_metcount", "Show the met count instead of your record", true, this->showMetCount);
+#pragma region register cvars
 
-	RegisterCVar("cl_dejavu_visuals", "Enables visuals", true, this->enabledVisuals);
-	RegisterCVar("cl_dejavu_toggle_with_scoreboard", "Toggle with scoreboard (instead of always on)", false, this->toggleWithScoreboard);
-	
-	auto debugCVar = RegisterCVar("cl_dejavu_debug", "Enables debug view. Useful for choosing colors", false, this->enabledDebug);
+	this->enabled.Register(this->cvarManager);
+
+	this->trackOpponents.Register(this->cvarManager);
+	this->trackTeammates.Register(this->cvarManager);
+	this->trackGrouped.Register(this->cvarManager);
+	this->showMetCount.Register(this->cvarManager);
+	this->showRecord.Register(this->cvarManager);
+	this->showAllPlaylistsRecord.Register(this->cvarManager);
+
+	auto visualCVar = this->enabledVisuals.Register(this->cvarManager);
+	visualCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		if (!cvar.getBoolValue())
+			this->enabledDebug = false;
+	});
+	this->toggleWithScoreboard.Register(this->cvarManager);
+	this->showNotes.Register(this->cvarManager);
+
+	auto debugCVar = this->enabledDebug.Register(this->cvarManager);
 	debugCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
 
@@ -188,42 +160,71 @@ void DejaVu::onLoad()
 		this->orangeTeamRenderData.clear();
 
 		if (val) {
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 } });
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 } });
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonngggg name", 999, { 999, 999 } });
-			this->orangeTeamRenderData.push_back({ "0", "Orange Player 1", 5, { 5, 5 } });
-			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 } });
-			//this->orangeTeamRenderData.push_back({ "0", "Orange Player 3", 999, { 999, 999 } });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 }, { 5, 5 }, "This guy was a great team player" });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 }, { 15, 15 }, "Quick chat spammer" });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonngggg name", 9999, { 999, 999 }, { 9999, 9999 } });
+			this->orangeTeamRenderData.push_back({ "0", "Orange Player 1", 5, { 5, 5 }, { 55, 55 } });
+			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 }, { 150, 150 }, "Left early" });
 		}
 	});
 #if DEV
-	debugCVar.setValue(true);
+	this->enabledDebug = true;
 #endif DEV
 
-	RegisterCVar("cl_dejavu_scale", "Scale of visuals", 1, this->scale);
+	this->scale.Register(this->cvarManager);
 	
-	RegisterCVar("cl_dejavu_alpha", "Alpha of display", 0.75f, this->alpha, true, true, 0.0f, true, 1.0f);
+	this->alpha.Register(this->cvarManager);
 	
-	RegisterCVar("cl_dejavu_xpos", "X position of display", 0.0f, this->xPos, true, true, 0.0f, true, 1.0f);
-	RegisterCVar("cl_dejavu_ypos", "Y position of display", 1.0f, this->yPos, true, true, 0.0f, true, 1.0f);
-	RegisterCVar("cl_dejavu_width", "Width of display", 0.0f, this->width, true, true, 0.0f, true, 1.0f);
+	this->xPos.Register(this->cvarManager);
+	this->yPos.Register(this->cvarManager);
+	this->width.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_text_color_r", "Text color: Red", 255, this->textColorR);
-	RegisterCVar("cl_dejavu_text_color_g", "Text color: Green", 255, this->textColorG);
-	RegisterCVar("cl_dejavu_text_color_b", "Text color: Blue", 255, this->textColorB);
+#pragma warning(suppress : 4996)
+	this->textColorR.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->textColorG.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->textColorB.Register(this->cvarManager);
+	this->textColor.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_background", "Enables background", true, this->enabledBackground);
+	this->enabledBorders.Register(this->cvarManager);
+	this->borderColor.Register(this->cvarManager);
 
-	RegisterCVar("cl_dejavu_background_color_r", "Background color: Red", 0, this->backgroundColorR);
-	RegisterCVar("cl_dejavu_background_color_g", "Background color: Green", 0, this->backgroundColorG);
-	RegisterCVar("cl_dejavu_background_color_b", "Background color: Blue", 0, this->backgroundColorB);
+	this->enabledBackground.Register(this->cvarManager);
 
-	auto logCVar = RegisterCVar("cl_dejavu_log", "Enables logging", false, this->enabledLog);
+#pragma warning(suppress : 4996)
+	this->backgroundColorR.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->backgroundColorG.Register(this->cvarManager);
+#pragma warning(suppress : 4996)
+	this->backgroundColorB.Register(this->cvarManager);
+	this->backgroundColor.Register(this->cvarManager);
+
+	this->hasUpgradedColors.Register(this->cvarManager);
+
+	auto logCVar = this->enabledLog.Register(this->cvarManager);
 	logCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
 		bool val = cvar.getBoolValue();
 
 		SetupLogger(this->logPath.string(), val);
 	});
+
+	this->mainGUIKeybind.Register(this->cvarManager).addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		std::string newBind = cvar.getStringValue();
+		if (!oldValue.empty() && oldValue != "None")
+			this->cvarManager->executeCommand("unbind " + oldValue, false);
+		if (newBind != "None")
+			this->cvarManager->setBind(newBind, "togglemenu dejavu");
+	});
+	this->quickNoteKeybind.Register(this->cvarManager).addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+		std::string newBind = cvar.getStringValue();
+		if (!oldValue.empty() && oldValue != "None")
+			this->cvarManager->executeCommand("unbind " + oldValue, false);
+		if (newBind != "None")
+			this->cvarManager->setBind(newBind, "dejavu_launch_quick_note");
+	});
+
+#pragma endregion register cvars
 
 	// I guess this doesn't fire for "you"
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.EventPlayerAdded", std::bind(&DejaVu::HandlePlayerAdded, this, std::placeholders::_1));
@@ -309,9 +310,23 @@ void DejaVu::onLoad()
 
 	LoadData();
 
+	GenerateSettingsFile();
+
+
 	this->gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) {
+		if (!*this->hasUpgradedColors)
+		{
+			LOG(INFO) << "Upgrading colors...";
+#pragma warning(suppress : 4996)
+			this->textColor = LinearColor{ (float)*this->textColorR, (float)*this->textColorG, (float)*this->textColorB, 0xff };
+#pragma warning(suppress : 4996)
+			this->backgroundColor = LinearColor{ (float)*this->backgroundColorR, (float)*this->backgroundColorG, (float)*this->backgroundColorB, 0xff };
+			this->hasUpgradedColors = true;
+			this->cvarManager->executeCommand("writeconfig");
+		}
+
 		LOG(INFO) << "---DEJAVU LOADED---";
-	}, 5);
+	}, 0.001f);
 
 #if DEV
 	this->cvarManager->executeCommand("exec tmp.cfg");
@@ -327,10 +342,8 @@ void DejaVu::onUnload()
 	this->cvarManager->backupCfg("./bakkesmod/cfg/tmp.cfg");
 #endif
 
-#if ENABLE_GUI
 	if (this->isWindowOpen)
 		this->cvarManager->executeCommand("togglemenu " + GetMenuName());
-#endif
 }
 
 
@@ -437,6 +450,19 @@ void DejaVu::WriteData()
 	}
 }
 
+std::optional<std::string> DejaVu::GetMatchGUID()
+{
+	ServerWrapper server = GetCurrentServer();
+	if (server.IsNull())
+		return std::nullopt;
+	if (server.IsPlayingPrivate())
+		return std::nullopt;
+	const std::string& curMatchGUID = server.GetMatchGUID();
+	if (curMatchGUID == "No worldInfo" || curMatchGUID.length() == 0)
+		return std::nullopt;
+	return curMatchGUID;
+}
+
 ServerWrapper DejaVu::GetCurrentServer()
 {
 	if (this->gameWrapper->IsInReplay())
@@ -471,17 +497,18 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 	LOG(INFO) << "HandlePlayerAdded: " << eventName;
 	if (this->gameIsOver)
 		return;
-	ServerWrapper server = this->GetCurrentServer();
+	ServerWrapper server = GetCurrentServer();
 	LOG(INFO) << "server is null: " << (server.IsNull() ? "true" : "false");
 	if (server.IsNull())
 		return;
 	if (server.IsPlayingPrivate())
 		return;
-	std::string matchGUID = server.GetMatchGUID();
-	LOG(INFO) << "Match GUID: " << matchGUID;
-	// Too early I guess, so bail since we need the match guid for tracking
-	if (matchGUID == "No worldInfo")
+	auto matchGUID = GetMatchGUID();
+	if (!matchGUID.has_value())
 		return;
+	LOG(INFO) << "Match GUID: " << matchGUID.value();
+	if (!this->curMatchGUID.has_value())
+		this->curMatchGUID = matchGUID;
 	MMRWrapper mw = this->gameWrapper->GetMMRWrapper();
 	ArrayWrapper<PriWrapper> pris = server.GetPRIs();
 
@@ -554,10 +581,10 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 			//GetAndSetMetMMR(uniqueID, curPlaylist, uniqueID);
 
 			// Only do met count logic if we haven't yet
-			if (this->matchPRIsMetList[matchGUID].count(uniqueIDStr) == 0)
+			if (this->matchesMetLists[this->curMatchGUID.value()].count(uniqueIDStr) == 0)
 			{
 				LOG(INFO) << "Haven't processed yet: " << playerName;
-				this->matchPRIsMetList[matchGUID].emplace(uniqueIDStr);
+				this->matchesMetLists[this->curMatchGUID.value()].emplace(uniqueIDStr);
 				int metCount = 0;
 				if (!this->data["players"].contains(uniqueIDStr))
 				{
@@ -616,8 +643,7 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 	auto server = GetCurrentServer();
 	auto myTeamNum = server.GetLocalPrimaryPlayer().GetPRI().GetTeamNum();
 	auto theirTeamNum = player.GetTeamNum();
-	unsigned char noTeamSet = -1;
-	if (myTeamNum == noTeamSet || theirTeamNum == noTeamSet)
+	if (myTeamNum == TEAM_NOT_SET || theirTeamNum == TEAM_NOT_SET)
 	{
 		LOG(INFO) << "No team set for " << player.GetPlayerName().ToString() << ", retrying in 5 seconds: " << (int)myTeamNum << ":" << (int)theirTeamNum;
 		// No team set. Try again in a couple seconds
@@ -643,13 +669,15 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 		LOG(INFO) << e.what();
 	}
 	bool sameTeam = theirTeamNum == myTeamNum;
-	Record record = GetRecord(uniqueIDStr, server.GetPlaylist().GetPlaylistId(), sameTeam ? Side::Same : Side::Other);
+	Record record = GetRecord(uniqueIDStr, static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
+	Record allRecord = GetRecord(uniqueIDStr, Playlist::ANY, sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
 	std::string playerName = player.GetPlayerName().ToString();
-	if (theirTeamNum == 0)
-		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record });
+	std::string playerNote = this->data["players"][uniqueIDStr].value("note", "");
+	if (theirTeamNum == TEAM_BLUE)
+		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, allRecord, playerNote });
 	else
-		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record });
+		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, allRecord, playerNote });
 }
 
 void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
@@ -707,6 +735,7 @@ void DejaVu::HandleGameStart(std::string eventName)
 	LOG(INFO) << eventName;
 	Reset();
 	this->cvarManager->getCvar("cl_dejavu_debug").setValue(false);
+	this->curMatchGUID = GetMatchGUID();
 }
 
 void DejaVu::HandleGameEnd(std::string eventName)
@@ -723,6 +752,7 @@ void DejaVu::HandleGameLeave(std::string eventName)
 	LOG(INFO) << eventName;
 	WriteData();
 	Reset();
+	this->curMatchGUID = std::nullopt;
 }
 
 void DejaVu::Reset()
@@ -730,7 +760,7 @@ void DejaVu::Reset()
 	this->gameIsOver = false;
 	this->currentMatchPRIs.clear();
 	// Maybe move this to HandleGameLeave but probably don't need to worry about it
-	//this->matchPRIsMetList.clear();
+	//this->matchesMetLists.clear();
 	this->blueTeamRenderData.clear();
 	this->orangeTeamRenderData.clear();
 }
@@ -757,12 +787,12 @@ void DejaVu::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet)
 	}, 5);
 }
 
-Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, int playlist, Side side)
+Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, Playlist playlist, Side side)
 {
 	return GetRecord(uniqueID.str(), playlist, side);
 }
 
-Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
+Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
 {
 	std::string sideStr;
 	if (side == Side::Same)
@@ -772,13 +802,32 @@ Record DejaVu::GetRecord(std::string steamID, int playlist, Side side)
 	else
 		return { 0, 0 };
 
-	json playerData = this->data["players"][steamID];
+	json playerData = this->data["players"][uniqueID];
 	if (!playerData.contains("playlistData"))
 		return { 0, 0 };
 	json data = playerData["playlistData"];
-	if (!data.contains(std::to_string(playlist)))
+
+	if (playlist == Playlist::ANY)
+	{
+		Record combinedRecord{};
+		for (auto it = data.begin(); it != data.end(); ++it)
+		{
+			if (it.key().empty())
+				continue;
+			auto playlistInt = std::stoi(it.key());
+			auto temp = GetRecord(uniqueID, static_cast<Playlist>(playlistInt), side);
+			combinedRecord.wins += temp.wins;
+			combinedRecord.losses += temp.losses;
+		}
+
+		return combinedRecord;
+	}
+
+	std::string playlistIdxStr = std::to_string(playlist);
+
+	if (!data.contains(playlistIdxStr))
 		return { 0, 0 };
-	json recordJson = data[std::to_string(playlist)]["records"];
+	json recordJson = data[playlistIdxStr]["records"];
 	if (recordJson.contains(sideStr))
 	{
 		try
@@ -816,6 +865,7 @@ void DejaVu::SetRecord()
 	if (localPRI.IsNull())
 		return;
 
+	Playlist playlist = static_cast<Playlist>(server.GetPlaylist().GetPlaylistId());
 	bool myTeamWon = winningTeam.GetTeamNum() == localPRI.GetTeamNum();
 	Log(myTeamWon ? "YOU WON!" : "YOU LOST!");
 	UniqueIDWrapper myID = localPRI.GetUniqueIdWrapper();
@@ -829,7 +879,6 @@ void DejaVu::SetRecord()
 
 		bool sameTeam = player.GetTeamNum() == localPRI.GetTeamNum();
 
-		int playlist = server.GetPlaylist().GetPlaylistId();
 		Record record = GetRecord(uniqueIDStr, playlist, sameTeam ? Side::Same : Side::Other);
 		if (myTeamWon)
 			record.wins++;
@@ -848,13 +897,19 @@ void DejaVu::SetRecord()
 
 bool DejaVu::IsInRealGame()
 {
-	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay();
+	return this->gameWrapper->IsInOnlineGame() && !this->gameWrapper->IsInReplay() && !this->gameWrapper->IsInFreeplay();
 }
 
+static float MetCountColumnWidth;
+static float RecordColumnWidth;
 void DejaVu::RenderDrawable(CanvasWrapper canvas)
 {
 	if (!Canvas::IsContextSet())
+	{
 		Canvas::SetContext(canvas);
+		MetCountColumnWidth = Canvas::GetStringWidth("9999") + 11;
+		RecordColumnWidth = Canvas::GetStringWidth("9999:9999") + 11;
+	}
 	Canvas::SetGlobalAlpha((char)(*this->alpha * 255));
 	Canvas::SetScale(*this->scale);
 
@@ -895,37 +950,58 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		orangeSize++;
 	}
 
-	int yOffset = 3;
-	int totalHeight = (blueSize + orangeSize) * Canvas::GetTableRowHeight() + 7 * 2 + yOffset;
-	//                                                                        ^^^^^
-	//                                                                  borderless padding
+	float yOffset = 3.0f + *this->enabledBorders * 2;
+	float totalHeight = (blueSize + orangeSize) * Canvas::GetTableRowHeight() + (7 * 2 * !*this->enabledBorders) + yOffset - !*this->enabledBorders;
+	//                                                                          ^^^^^
+	//                                                                    borderless padding
 
 	Vector2 canvasSize = Canvas::GetSize();
-	int width = (int)((canvasSize.X - 200 * *this->scale) * *this->width) + 200 * *this->scale;
+	float tableWidth = 150;
+	if (*this->showMetCount)
+		tableWidth += MetCountColumnWidth;
+	if (*this->showRecord)
+		tableWidth += RecordColumnWidth;
+	if (*this->showAllPlaylistsRecord)
+		tableWidth += RecordColumnWidth;
+	if (*this->showNotes)
+		tableWidth += 150;
+	float width = ((canvasSize.X - tableWidth * *this->scale) * *this->width) + tableWidth * *this->scale;
 
-	int maxX = canvasSize.X - width;
-	int maxY = canvasSize.Y - totalHeight;
-
-	Canvas::Color textColor{ (unsigned)*this->textColorR, (unsigned)*this->textColorG, (unsigned)*this->textColorB };
-	Canvas::Color bgColor{ (unsigned)*this->backgroundColorR, (unsigned)*this->backgroundColorG, (unsigned)*this->backgroundColorB };
-	Canvas::CanvasTableOptions tableOptions{
-		textColor,
-		*this->enabledBackground,
-		bgColor,
-		false,
-		Canvas::Color::WHITE,
-		width,
-	};
+	float maxX = canvasSize.X - width;
+	float maxY = canvasSize.Y - totalHeight;
 
 	std::vector<Canvas::CanvasColumnOptions> columnOptions{
 		{ Canvas::Alignment::LEFT },
-		{ Canvas::Alignment::RIGHT, (*this->showMetCount ? Canvas::GetStringWidth("999") : Canvas::GetStringWidth("999:999")) + 11 },
+	};
+
+	if (*this->showNotes)
+		columnOptions[0].maxWidth = 250.0f;
+
+	if (*this->showMetCount)
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, MetCountColumnWidth * *this->scale });
+
+	if (*this->showRecord)
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth * *this->scale });
+
+	if (*this->showAllPlaylistsRecord)
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth * *this->scale });
+
+	if (*this->showNotes)
+		columnOptions.push_back({ Canvas::Alignment::LEFT });
+
+	Canvas::CanvasTableOptions tableOptions{
+		Canvas::to_color(*this->textColor),
+		*this->enabledBackground,
+		Canvas::to_color(*this->backgroundColor),
+		*this->enabledBorders,
+		Canvas::to_color(*this->borderColor),
+		width,
 	};
 
 	Canvas::SetPosition(*this->xPos * maxX, *this->yPos * maxY);
 	RenderUI(this->blueTeamRenderData, tableOptions, columnOptions, renderPlayerBlue);
 
-	Canvas::SetPosition(Canvas::GetPosition() + Vector2{ 0, yOffset });
+	Canvas::SetPosition(Canvas::GetPositionFloat() + Vector2F{ 0, yOffset });
 	RenderUI(this->orangeTeamRenderData, tableOptions, columnOptions, renderPlayerOrange);
 }
 
@@ -942,10 +1018,19 @@ void DejaVu::RenderUI(const std::vector<RenderData>& renderData, const Canvas::C
 	for (const auto& player : renderData)
 	{
 		std::string playerName = player.name;
-		// Only show * if showing record, we've met them, and record is 0:0
+		// Only show * if not showing met count, we've met them, and record is 0:0
 		if (!*this->showMetCount && player.metCount > 1 && (player.record.wins == 0 && player.record.losses == 0))
 			playerName += "*";
-		Canvas::Row({ playerName, *this->showMetCount ? std::to_string(player.metCount) : (std::to_string(player.record.wins) + ":" + std::to_string(player.record.losses)) });
+		std::vector<std::string> rowData{ playerName };
+		if (*this->showMetCount)
+			rowData.push_back(std::to_string(player.metCount));
+		if (*this->showRecord)
+			rowData.push_back(std::to_string(player.record));
+		if (*this->showAllPlaylistsRecord)
+			rowData.push_back(std::to_string(player.allPlaylistsRecord));
+		if (*this->showNotes)
+			rowData.push_back(player.note);
+		Canvas::Row(rowData);
 	}
 
 	Canvas::EndTable();

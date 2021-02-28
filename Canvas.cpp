@@ -1,8 +1,7 @@
+#include "pch.h"
 #include "Canvas.h"
 
-#include <numeric>
-#include <assert.h>
-
+#undef max
 #define CHECK_CTX assert(GCanvas->ctxSet)
 #define FORWARD(method, ...) CHECK_CTX; return GCanvas->canvas.method(__VA_ARGS__)
 
@@ -26,28 +25,19 @@ bool Canvas::IsContextSet()
 	return GCanvas->ctxSet;
 }
 
-int Canvas::GetCharHeight()
+float Canvas::GetCharHeight()
 {
-	return GCanvas->characterHeight * GCanvas->scale;
+	return GCanvas->canvas.GetStringSize("A", GCanvas->scale, GCanvas->scale).Y;
 }
 
-int Canvas::GetCharWidth(unsigned char ch)
+float Canvas::GetStringWidth(std::string str)
 {
-	if (ch >= 256)
-		return 8 * GCanvas->scale;
-	unsigned int width = GCanvas->characterWidths[ch];
-	return (width == 0 ? 8 : width) * GCanvas->scale;
+	return GCanvas->canvas.GetStringSize(str, GCanvas->scale, GCanvas->scale).X;
 }
 
-int Canvas::GetStringWidth(std::string str)
+char Canvas::GetGlobalAlpha()
 {
-	unsigned int total = 0;
-	for (char ch : str)
-	{
-		total += GetCharWidth(ch);
-	}
-
-	return total;
+	return GCanvas->alpha;
 }
 
 void Canvas::SetGlobalAlpha(char alpha)
@@ -65,9 +55,9 @@ void Canvas::SetColor(Color color, char alpha)
 	SetColor(color.r, color.g, color.b, alpha);
 }
 
-void Canvas::SetScale(unsigned int scale)
+void Canvas::SetScale(float scale)
 {
-	assert(scale >= 1);
+	assert(scale >= 0);
 	GCanvas->scale = scale;
 }
 
@@ -140,7 +130,7 @@ void Canvas::FillTriangle(Vector2F p1, Vector2F p2, Vector2F p3, LinearColor col
 
 void Canvas::DrawString(std::string text)
 {
-	FORWARD(DrawString, text);
+	FORWARD(DrawString, text, GCanvas->scale, GCanvas->scale);
 }
 
 void Canvas::DrawString(std::string text, float xScale, float yScale)
@@ -223,15 +213,25 @@ void Canvas::Row(const std::vector<std::string>& rowData)
 	GCanvas->tableContext.rows.push_back(rowData);
 }
 
-// TODO: Add capability to specify table width and then mark columns as expandable. That would cause other columns to shrink.
+void CalculateAutoWidths(std::vector<float>& colSizes, int startIdx, int numCols, float remainingWidth)
+{
+		float distWidth = remainingWidth / numCols;
+		for (int i = startIdx; i < colSizes.size(); i++)
+		{
+			const auto& colOpt = GCanvas->tableContext.columnOptions[i];
+			if (colOpt.width == 0)
+				colSizes[i] = distWidth;
+		}
+}
+
 void Canvas::EndTable()
 {
 	CHECK_CTX;
 	assert(GCanvas->tableContext.totalCols >= 1);
 	assert(GCanvas->tableContext.rows.size() >= 1);
-	Vector2 pos = GetPosition();
+	Vector2F pos = GetPositionFloat();
 
-	std::vector<int> colSizes(GCanvas->tableContext.totalCols, 0);
+	std::vector<float> colSizes(GCanvas->tableContext.totalCols, 0);
 	// Fixed width set
 	if (GCanvas->tableContext.tableOptions.width > 0)
 	{
@@ -245,8 +245,8 @@ void Canvas::EndTable()
 		}
 		int colNum = 0;
 		int numFixedCols = 0;
-		int totalSetWidths = 0;
-		for (auto& colOpt : GCanvas->tableContext.columnOptions)
+		float totalSetWidths = 0;
+		for (const auto& colOpt : GCanvas->tableContext.columnOptions)
 		{
 			if (colOpt.width > 0)
 			{
@@ -255,15 +255,21 @@ void Canvas::EndTable()
 			}
 			colNum++;
 		}
-		int remainingWidth = std::max(GCanvas->tableContext.tableOptions.width - totalSetWidths, 0);
-		int newColWidth = remainingWidth / (GCanvas->tableContext.totalCols - numFixedCols);
-		int colRemainder = remainingWidth % (GCanvas->tableContext.totalCols - numFixedCols);
-		for (auto& colSize : colSizes)
+		float remainingWidth = std::max(GCanvas->tableContext.tableOptions.width - totalSetWidths, 0.0f);
+		float newColWidth = remainingWidth / (GCanvas->tableContext.totalCols - numFixedCols);
+		int numAutoCols = GCanvas->tableContext.totalCols - numFixedCols;
+		CalculateAutoWidths(colSizes, 0, numAutoCols, remainingWidth);
+		int i = 0;
+		for (const auto& colOpt : GCanvas->tableContext.columnOptions)
 		{
-			if (colSize == 0)
-				colSize = remainingWidth / (GCanvas->tableContext.totalCols - numFixedCols);
+			if (colOpt.maxWidth.has_value() && colOpt.maxWidth.value() < colSizes[i])
+			{
+				colSizes[i] = colOpt.maxWidth.value();
+				remainingWidth -= colSizes[i];
+				CalculateAutoWidths(colSizes, i + 1, --numAutoCols, remainingWidth);
+			}
+			i++;
 		}
-		colSizes[colSizes.size() - 1] += colRemainder;
 	}
 	// Expand to fit columns
 	else
@@ -278,7 +284,7 @@ void Canvas::EndTable()
 			int colNum = 0;
 			for (const auto& col : row)
 			{
-				colSizes[colNum] = std::max({ GetStringWidth(col) + GCanvas->tableContext.tableOptions.padding * 2, colSizes[colNum], 5 });
+				colSizes[colNum] = std::max({ GetStringWidth(col) + GCanvas->tableContext.tableOptions.padding * 2, colSizes[colNum], 5.0f });
 				colNum++;
 			}
 		}
@@ -291,30 +297,29 @@ void Canvas::EndTable()
 			colNum++;
 		}
 	}
-	int totalWidth = std::accumulate(colSizes.begin(), colSizes.end(), 0);
+	float totalWidth = std::accumulate(colSizes.begin(), colSizes.end(), 0.0f);
 
-	int maxX = pos.X + totalWidth;
-	int maxY = pos.Y + GetTableRowHeight() * (int)GCanvas->tableContext.rows.size();
+	float maxX = pos.X + totalWidth;
+	float maxY = pos.Y + GetTableRowHeight() * (int)GCanvas->tableContext.rows.size();
 
 	// Draw background
 	if (GCanvas->tableContext.tableOptions.background)
 	{
 		SetColor(GCanvas->tableContext.tableOptions.backgroundColor);
-		DrawRect(Vector2{ pos.X, pos.Y }, { maxX, maxY + (GCanvas->tableContext.tableOptions.borders ? 0 : 5+2) });
+		DrawRect(Vector2F{ pos.X, pos.Y }, { maxX, maxY + (GCanvas->tableContext.tableOptions.borders ? 0.0f : GCanvas->tableContext.verticalPadding * 2) });
 	}
 	if (GCanvas->tableContext.tableOptions.borders)
 	{
 		SetColor(GCanvas->tableContext.tableOptions.borderColor);
 		// For some reason vertical lines draw x-1 and horizontal lines draw y-1
-		DrawLine(Vector2{ pos.X + 1, pos.Y }, { pos.X + 1, maxY });
-		DrawLine(Vector2{ pos.X, pos.Y + 1 }, { maxX, pos.Y + 1 });
-		//DrawLine(Vector2{ maxX, pos.Y }, { maxX, maxY });
-		//DrawLine(Vector2{ pos.X, maxY }, { maxX, maxY });
+		DrawLine(Vector2F{ pos.X + 1, pos.Y }, { pos.X + 1, maxY });
+		DrawLine(Vector2F{ pos.X, pos.Y + 0 }, { maxX, pos.Y + 0 });
 	}
 
 	// Draw data
-	int xPos = pos.X;
-	int yPos = pos.Y + 1 + (GCanvas->tableContext.tableOptions.borders ? 0 : 5);
+	float xPos = pos.X;
+	float yPos = pos.Y + 1 + (GCanvas->tableContext.tableOptions.borders ? 0 : 5);
+	float ellipsisWidth = GetStringWidth("...");
 	for (const auto& row : GCanvas->tableContext.rows)
 	{
 		// Reset back to start
@@ -324,21 +329,22 @@ void Canvas::EndTable()
 		{
 			if (i >= GCanvas->tableContext.totalCols)
 				break;
-			int colSize = colSizes[i];
+			float colSize = colSizes[i];
 			auto& options = GCanvas->tableContext.columnOptions[i];
-			int strWidth = GetStringWidth(col);
+			float strWidth = GetStringWidth(col);
 			// truncate if necessary
-			int remainingPixels = colSize - GCanvas->tableContext.tableOptions.padding * 2;
+			float remainingPixels = (float)(colSize - GCanvas->tableContext.tableOptions.padding * 2);
 			// not enough room for the string
 			if (strWidth >= remainingPixels)
 			{
 				int characters = 0;
-				int pixels = 0;
+				float pixels = 0;
 				// remove space for the ellipsis for calculation
-				remainingPixels -= Canvas::GetCharWidth('.') * 3;
+				remainingPixels -= ellipsisWidth;
 				for (char ch : col)
 				{
-					int width = Canvas::GetCharWidth(ch);
+					float width = GetStringWidth({ch});
+					//width = 8;
 					if ((pixels + width) > remainingPixels)
 						break;
 					pixels += width;
@@ -349,21 +355,21 @@ void Canvas::EndTable()
 			}
 			switch (options.alignment) {
 				case Alignment::LEFT:
-					SetPosition(Vector2{ xPos + GCanvas->tableContext.tableOptions.padding, yPos });
+					SetPosition(Vector2F{ xPos + GCanvas->tableContext.tableOptions.padding, yPos });
 					break;
 				case Alignment::CENTER: {
-					int offset = (colSize - strWidth) / 2;
-					SetPosition(Vector2{ xPos + offset, yPos });
+					float offset = (colSize - strWidth) / 2;
+					SetPosition(Vector2F{ xPos + offset, yPos });
 					break;
 				}
 				case Alignment::RIGHT: {
-					int offset = colSize - GCanvas->tableContext.tableOptions.padding - strWidth;
-					SetPosition(Vector2{ xPos + offset, yPos });
+					float offset = colSize - GCanvas->tableContext.tableOptions.padding - strWidth;
+					SetPosition(Vector2F{ xPos + offset, yPos });
 					break;
 				}
 			}
 			SetColor(GCanvas->tableContext.tableOptions.textColor);
-			DrawString(col, (float)GCanvas->scale, (float)GCanvas->scale);
+			DrawString(col, GCanvas->scale, GCanvas->scale);
 			xPos += colSize;
 			// TODO: make this drawn once per column from top to bottom
 			if (GCanvas->tableContext.tableOptions.borders)
@@ -371,7 +377,7 @@ void Canvas::EndTable()
 				SetColor(GCanvas->tableContext.tableOptions.borderColor);
 				// We don't x+1 here because we want it to overlap the edge of the bg
 				// Looks like first row line start too high
-				DrawLine(Vector2{ xPos, yPos - 1 }, { xPos, yPos - 1 + GetTableRowHeight() - 1 });
+				DrawLine(Vector2F{ xPos, yPos - 1 }, { xPos, yPos - 1 + GetTableRowHeight() - 1 });
 			}
 			i++;
 		}
@@ -381,7 +387,7 @@ void Canvas::EndTable()
 		{
 			SetColor(GCanvas->tableContext.tableOptions.borderColor);
 			// y-1 here because we went up 1 at the start for the text padding
-			DrawLine(Vector2{ pos.X, yPos - 1 }, { maxX, yPos - 1 });
+			DrawLine(Vector2F{ pos.X, yPos - 1 }, { maxX, yPos - 1 });
 		}
 	}
 
@@ -389,7 +395,7 @@ void Canvas::EndTable()
 	SetPosition(pos.X, yPos - 1 + (GCanvas->tableContext.tableOptions.borders ? 0 : 2));
 }
 
-int Canvas::GetTableRowHeight()
+float Canvas::GetTableRowHeight()
 {
 	return GetCharHeight() + GCanvas->tableContext.verticalPadding;
 }
