@@ -27,7 +27,7 @@ namespace std {
 		return to_string(record.wins) + ":" + to_string(record.losses);
 	}
 	string to_string(const Playlist& playlist) {
-		return to_string(playlist);
+		return to_string(static_cast<int>(playlist));
 	}
 }
 
@@ -830,7 +830,10 @@ Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
 		Record combinedRecord{};
 		for (auto it = data.begin(); it != data.end(); ++it)
 		{
-			auto temp = GetRecord(uniqueID, static_cast<Playlist>(std::stoi(it.key())), side);
+			if (it.key().empty())
+				continue;
+			auto playlistInt = std::stoi(it.key());
+			auto temp = GetRecord(uniqueID, static_cast<Playlist>(playlistInt), side);
 			combinedRecord.wins += temp.wins;
 			combinedRecord.losses += temp.losses;
 		}
@@ -880,6 +883,7 @@ void DejaVu::SetRecord()
 	if (localPRI.IsNull())
 		return;
 
+	Playlist playlist = static_cast<Playlist>(server.GetPlaylist().GetPlaylistId());
 	bool myTeamWon = winningTeam.GetTeamNum() == localPRI.GetTeamNum();
 	Log(myTeamWon ? "YOU WON!" : "YOU LOST!");
 	UniqueIDWrapper myID = localPRI.GetUniqueIdWrapper();
@@ -893,7 +897,6 @@ void DejaVu::SetRecord()
 
 		bool sameTeam = player.GetTeamNum() == localPRI.GetTeamNum();
 
-		Playlist playlist = static_cast<Playlist>(server.GetPlaylist().GetPlaylistId());
 		Record record = GetRecord(uniqueIDStr, playlist, sameTeam ? Side::Same : Side::Other);
 		if (myTeamWon)
 			record.wins++;

@@ -75,10 +75,24 @@ X(TrainingEditor, 20) \
 X(CustomTraining, 21) \
 X(Tournament, 22) \
 X(Dropshot, 23) \
+X(LocalMatch, 24) \
+X(ExternalMatchRanked, 26) \
 X(RankedHoops, 27) \
 X(RankedRumble, 28) \
 X(RankedDropshot, 29) \
-X(RankedSnowDay, 30)
+X(RankedSnowDay, 30) \
+X(GhostHunt, 31) \
+X(BeachBall, 32) \
+X(SpikeRush, 33) \
+X(TournamentMatchAutomatic, 34) \
+X(RocketLabs, 35) \
+X(DropshotRumble, 37) \
+X(Heatseeker, 38) \
+X(BoomerBall, 41) \
+X(HeatseekerDoubles, 43) \
+X(WinterBreakaway, 44) \
+X(Gridiron, 46) \
+X(SuperCube, 47)
 
 #define X(playlist, id) playlist = id,
 enum class Playlist
