@@ -47,9 +47,7 @@ void DejaVu::GenerateSettingsFile()
 	sameline;
 	checkbox("Show record", CVAR_SHOW_RECORD);
 	sameline;
-	greyedStart(CVAR_SHOW_RECORD);
 	checkbox("Show record over all playlists", CVAR_SHOW_ALL_PLAYLISTS_RECORD);
-	greyedEnd;
 	sameline;
 	checkbox("Show player notes", CVAR_SHOW_PLAYER_NOTES);
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#define DEV 1
+#define DEV 0
 
 #include <vector>
 #include <map>
@@ -67,7 +67,7 @@ X(RankedSoloStandard, 12) \
 X(RankedStandard, 13) \
 X(MutatorMashup, 14) \
 X(SnowDay, 15) \
-X(RocketLabs, 16) \
+X(RocketLabsOld, 16) \
 X(Hoops, 17) \
 X(Rumble, 18) \
 X(Workshop, 19) \
@@ -139,6 +139,7 @@ struct RenderData {
 	std::string name;
 	int metCount;
 	Record record;
+	Record allPlaylistsRecord;
 	std::string note;
 };
 

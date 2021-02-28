@@ -136,28 +136,7 @@ void DejaVu::onLoad()
 	this->trackGrouped.Register(this->cvarManager);
 	this->showMetCount.Register(this->cvarManager);
 	this->showRecord.Register(this->cvarManager);
-	this->showAllPlaylistsRecord.Register(this->cvarManager).addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
-		if (*this->enabledDebug || !IsInRealGame())
-			return;
-		auto server = GetCurrentServer();
-		if (server.IsNull())
-			return;
-		auto myTeamNum = server.GetLocalPrimaryPlayer().GetPRI().GetTeamNum();
-		for (auto& blue : this->blueTeamRenderData) {
-			if (!this->currentMatchPRIs.count(blue.id))
-				continue;
-			auto theirTeamNum = this->currentMatchPRIs.at(blue.id).GetTeamNum();
-			bool sameTeam = theirTeamNum == myTeamNum;
-			blue.record = GetRecord(blue.id, cvar.getBoolValue() ? Playlist::ANY : static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
-		}
-		for (auto& orange : this->orangeTeamRenderData) {
-			if (!this->currentMatchPRIs.count(orange.id))
-				continue;
-			auto theirTeamNum = this->currentMatchPRIs.at(orange.id).GetTeamNum();
-			bool sameTeam = theirTeamNum == myTeamNum;
-			orange.record = GetRecord(orange.id, cvar.getBoolValue() ? Playlist::ANY : static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
-		}
-	});
+	this->showAllPlaylistsRecord.Register(this->cvarManager);
 
 	auto visualCVar = this->enabledVisuals.Register(this->cvarManager);
 	visualCVar.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
@@ -181,12 +160,11 @@ void DejaVu::onLoad()
 		this->orangeTeamRenderData.clear();
 
 		if (val) {
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 }, "This guy was a great team player" });
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 }, "Quick chat spammer" });
-			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonngggg name", 999, { 999, 999 } });
-			this->orangeTeamRenderData.push_back({ "0", "Orange Player 1", 5, { 5, 5 } });
-			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 }, "Left early" });
-			//this->orangeTeamRenderData.push_back({ "0", "Orange Player 3", 999, { 999, 999 } });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 1", 5, { 5, 5 }, { 5, 5 }, "This guy was a great team player" });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 2", 15, { 15, 15 }, { 15, 15 }, "Quick chat spammer" });
+			this->blueTeamRenderData.push_back({ "0", "Blue Player 3 with a loooonngggg name", 9999, { 999, 999 }, { 9999, 9999 } });
+			this->orangeTeamRenderData.push_back({ "0", "Orange Player 1", 5, { 5, 5 }, { 55, 55 } });
+			this->orangeTeamRenderData.push_back({ "0", "Orange Player 2", 15, { 15, 15 }, { 150, 150 }, "Left early" });
 		}
 	});
 #if DEV
@@ -690,14 +668,15 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 		LOG(INFO) << e.what();
 	}
 	bool sameTeam = theirTeamNum == myTeamNum;
-	Record record = GetRecord(uniqueIDStr, *this->showAllPlaylistsRecord ? Playlist::ANY : static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
+	Record record = GetRecord(uniqueIDStr, static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
+	Record allRecord = GetRecord(uniqueIDStr, Playlist::ANY, sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
 	std::string playerName = player.GetPlayerName().ToString();
 	std::string playerNote = this->data["players"][uniqueIDStr].value("note", "");
 	if (theirTeamNum == TEAM_BLUE)
-		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, playerNote });
+		this->blueTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, allRecord, playerNote });
 	else
-		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, playerNote });
+		this->orangeTeamRenderData.push_back({ uniqueIDStr, playerName, metCount, record, allRecord, playerNote });
 }
 
 void DejaVu::RemovePlayerFromRenderData(PriWrapper player)
@@ -925,8 +904,8 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	if (!Canvas::IsContextSet())
 	{
 		Canvas::SetContext(canvas);
-		MetCountColumnWidth = Canvas::GetStringWidth("999") + 11;
-		RecordColumnWidth = Canvas::GetStringWidth("999:999") + 11;
+		MetCountColumnWidth = Canvas::GetStringWidth("9999") + 11;
+		RecordColumnWidth = Canvas::GetStringWidth("9999:9999") + 11;
 	}
 	Canvas::SetGlobalAlpha((char)(*this->alpha * 255));
 	Canvas::SetScale(*this->scale);
@@ -979,6 +958,8 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		tableWidth += MetCountColumnWidth;
 	if (*this->showRecord)
 		tableWidth += RecordColumnWidth;
+	if (*this->showAllPlaylistsRecord)
+		tableWidth += RecordColumnWidth;
 	if (*this->showNotes)
 		tableWidth += 150;
 	float width = ((canvasSize.X - tableWidth * *this->scale) * *this->width) + tableWidth * *this->scale;
@@ -987,7 +968,7 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 	float maxY = canvasSize.Y - totalHeight;
 
 	std::vector<Canvas::CanvasColumnOptions> columnOptions{
-		{ Canvas::Alignment::LEFT, 0 },
+		{ Canvas::Alignment::LEFT },
 	};
 
 	if (*this->showNotes)
@@ -997,6 +978,9 @@ void DejaVu::RenderDrawable(CanvasWrapper canvas)
 		columnOptions.push_back({ Canvas::Alignment::RIGHT, MetCountColumnWidth * *this->scale });
 
 	if (*this->showRecord)
+		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth * *this->scale });
+
+	if (*this->showAllPlaylistsRecord)
 		columnOptions.push_back({ Canvas::Alignment::RIGHT, RecordColumnWidth * *this->scale });
 
 	if (*this->showNotes)
@@ -1039,6 +1023,8 @@ void DejaVu::RenderUI(const std::vector<RenderData>& renderData, const Canvas::C
 			rowData.push_back(std::to_string(player.metCount));
 		if (*this->showRecord)
 			rowData.push_back(std::to_string(player.record));
+		if (*this->showAllPlaylistsRecord)
+			rowData.push_back(std::to_string(player.allPlaylistsRecord));
 		if (*this->showNotes)
 			rowData.push_back(player.note);
 		Canvas::Row(rowData);
