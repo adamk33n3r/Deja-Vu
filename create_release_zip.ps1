@@ -20,7 +20,7 @@ try {
 
     $buildDir = (Get-Location).ToString() + '\zipDir'
     New-Item -Force -ItemType Directory -Path .\builds | Out-Null
-    $zipFile = ".\builds\DejaVu - $versionString.zip"
+    $zipFile = ".\builds\DejaVu-$versionString.zip"
 
     if (Test-Path $zipFile -PathType Leaf) {
         if (-not (IsInteractive)) {
