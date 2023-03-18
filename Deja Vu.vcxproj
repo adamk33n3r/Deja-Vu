@@ -56,7 +56,7 @@
       <AdditionalDependencies>pluginsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>"$(ProjectDir)bakkesmod-patch.exe" "$(TargetPath)"
+      <Command>"$(ProjectDir)bakkesmod-patch.exe" -p password2 "$(TargetPath)"
 powershell.exe -ExecutionPolicy Bypass -NoProfile -NonInteractive -File create_release_zip.ps1</Command>
     </PostBuildEvent>
     <PreBuildEvent>

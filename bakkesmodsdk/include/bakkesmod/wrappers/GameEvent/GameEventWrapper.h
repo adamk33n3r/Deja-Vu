@@ -3,6 +3,7 @@ template<class T> class ArrayWrapper;
 template<typename T> class StructArrayWrapper;
 #include "../WrapperStructs.h"
 #include ".././Engine/ActorWrapper.h"
+class ControllerWrapper;
 class PlayerControllerWrapper;
 class CarWrapper;
 class UnrealStringWrapper;
@@ -15,9 +16,9 @@ class BAKKESMOD_PLUGIN_IMPORT GameEventWrapper : public ActorWrapper {
 public:
 	CONSTRUCTORS(GameEventWrapper)
 
+	_NODISCARD std::string GetMatchTypeName() const;
+
 	//AUTO-GENERATED FROM FIELDS
-	unsigned char GetGameMode();
-	void SetGameMode(unsigned char newGameMode);
 	unsigned char GetReplicatedStateIndex();
 	void SetReplicatedStateIndex(unsigned char newReplicatedStateIndex);
 	CarWrapper GetCarArchetype();
@@ -63,6 +64,7 @@ public:
 	void SetActivator(PlayerControllerWrapper newActivator);
 	CarWrapper GetActivatorCar();
 	void SetActivatorCar(CarWrapper newActivatorCar);
+    ArrayWrapper<ControllerWrapper> GetPlayers();
 	ArrayWrapper<PriWrapper> GetPRIs();
 	ArrayWrapper<CarWrapper> GetCars();
 	ArrayWrapper<PlayerControllerWrapper> GetLocalPlayers();
@@ -72,10 +74,6 @@ public:
 	void SetGameStateTimeRemaining(int newGameStateTimeRemaining);
 	int GetReplicatedGameStateTimeRemaining();
 	void SetReplicatedGameStateTimeRemaining(int newReplicatedGameStateTimeRemaining);
-	float GetIdleKickTime();
-	void SetIdleKickTime(float newIdleKickTime);
-	float GetIdleKickWarningTime();
-	void SetIdleKickWarningTime(float newIdleKickWarningTime);
 	float GetBotBoostThreshold_vsAI();
 	void SetBotBoostThreshold_vsAI(float newBotBoostThreshold_vsAI);
 	StructArrayWrapper<SteamID> GetForfeitInitiatorIDs();
@@ -130,10 +128,6 @@ public:
 	void SetAllowReadyUp2(unsigned long bAllow);
 	void AutoReadyPlayers();
 	bool ShouldAutoReadyUp(PriWrapper PRI);
-	void KickSplitscreenIdlers();
-	void KickIdlers();
-	void StopIdleKickTimer();
-	void StartIdleKickTimer(float OffsetTime);
 	void SendGoMessage(PlayerControllerWrapper Player);
 	void SendCountdownMessage(int Seconds, PlayerControllerWrapper Player);
 	void BroadcastCountdownMessage(int Seconds);

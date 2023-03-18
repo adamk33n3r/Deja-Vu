@@ -2,7 +2,10 @@
 //#include "../shared.h"
 
 #include "linmath.h"
-#include <algorithm> 
+#include <map>
+#include <string>
+#include <algorithm>
+#include "bakkesmod/plugin/bakkesmodsdk.h"
 
 #ifndef CONST_RadToUnrRot
 #define CONST_RadToUnrRot    10430.3783504704527f
@@ -28,9 +31,9 @@
 enum ToastType
 {
     ToastType_Info = 0,
-    ToastType_OK,
-    ToastType_Warning,
-    ToastType_Error
+    ToastType_OK = 1,
+    ToastType_Warning = 2,
+    ToastType_Error = 3
 };
 
 #pragma pack ( push, 0x8 )
@@ -891,6 +894,12 @@ struct ViewTarget {
     void* PRI;         // PRIWrapper(PRI)
 };
 
+struct CameraSave
+{
+    bool InvertSwivelPitch;
+    bool CameraShake;
+};
+
 struct ProfileCameraSettings
 {
     float FOV;
@@ -900,6 +909,14 @@ struct ProfileCameraSettings
     float Stiffness;
     float SwivelSpeed;
     float TransitionSpeed;
+};
+
+struct GamepadSettings
+{
+    float ControllerDeadzone;
+    float DodgeInputThreshold;
+    float SteeringSensitivity;
+    float AirControlSensitivity;
 };
 
 struct RBState
@@ -939,6 +956,70 @@ struct WheelContactData {
     void* PhysMatProp;
 };
 
+struct ReplayScoreData
+{
+    uintptr_t ScoredBy;   //PriWrapper
+    uintptr_t AssistedBy; //PriWrapper
+    float Speed;
+    float Time;
+    unsigned char ScoreTeam;
+};
+
+struct VideoSettings
+{
+    bool bVsync;
+    bool bShowWeatherFX;
+    bool bShowLightShafts;
+    bool bTranslucentArenaShaders;
+    bool bShowLensFlares;
+    bool bEnableHDRSideBySideVisualizer;
+    bool bUncappedFramerate;
+    float HDRBrightnessScale;
+    float HDRPaperWhiteScale;
+    float HDRGammaScale;
+
+    int WindowMode;
+    std::string Resolution;
+    int MaxFPS;
+    std::map<std::string, std::string> VideoOptions;
+};
+
+struct ProductInstanceID
+{
+	unsigned long long upper_bits;
+	unsigned long long lower_bits;
+};
+
+struct BAKKESMOD_PLUGIN_IMPORT GUIDWrapper
+{
+    GUIDWrapper() = default;
+	GUIDWrapper(int32_t a, int32_t b, int32_t c, int32_t d);
+	explicit GUIDWrapper(const struct FGuid& guid);
+    static GUIDWrapper Create();
+
+	enum class EGuidFormats : uint8_t
+	{
+		Digits =							0, // Example: 00000000000000000000000000000000
+		DigitsWithHyphens =					1, // Example: 00000000-0000-0000-0000-000000000000
+		DigitsWithHyphensInBraces =			2, // Example: {00000000-0000-0000-0000-000000000000}
+		DigitsWithHyphensInParentheses =	3, // Example: (00000000-0000-0000-0000-000000000000)
+		HexValuesInBraces =					4, // Example: {0x00000000,0x0000,0x0000,{0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}}
+		UniqueObjectGuid =					5, // Example: 00000000-00000000-00000000-00000000
+	};
+	int32_t A = 0, B = 0, C = 0, D = 0;
+
+    bool IsValid() const;
+	std::string ToString(EGuidFormats format = EGuidFormats::UniqueObjectGuid) const;
+	
+};
+
+
+
+struct TrainingRoundProgress {
+    int RoundNumber; 
+    unsigned char Status; //See: EnumWrapper::GetTrainingRoundAttempts
+    unsigned char Padding[0x3];
+};
 
 // #Enums
 enum TRADEHOLD
@@ -948,7 +1029,7 @@ enum TRADEHOLD
     TRADEHOLD_NONE = 0,
 };
 
-enum PRODUCTQUALITY
+enum [[deprecated("Not guaranteed to be up to date, use EnumWrapper::GetProductQualities() to future proof your code.")]] PRODUCTQUALITY
 {
     Common = 0,
     Uncommon = 1,
@@ -959,10 +1040,11 @@ enum PRODUCTQUALITY
     BlackMarket = 6,
     Premium = 7,
     Limited = 8,
-    MAX = 9
+    Legacy = 9,
+    MAX = 10
 };
 
-enum UNLOCKMETHOD
+enum [[deprecated("Not guaranteed to be up to date, use EnumWrapper::GetUnlockMethods() to future proof your code.")]] UNLOCKMETHOD
 {
     Default = 0,
     Drop = 1,
@@ -973,7 +1055,7 @@ enum UNLOCKMETHOD
     MAX_ = 6
 };
 
-enum CARBODY
+enum [[deprecated("Not guaranteed to be up to date, use the ProductWrappers to future proof your code.")]]  CARBODY
 {
     CAR_BACKFIRE = 21,
     CAR_BREAKOUT = 22,

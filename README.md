@@ -4,6 +4,8 @@ Deja Vu keeps track of the players you've played against so you can answer the q
 
 Settings for controlling the behavior and visual style of the display are in the **F2 - > Plugins - > Deja Vu** menu.
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T0JH18I)
+
 ## Overview
 - In-game display showing players in current match and how many times you've met them, your record, and custom notes.
   - Can be always-on or only shown when the scoreboard is up.

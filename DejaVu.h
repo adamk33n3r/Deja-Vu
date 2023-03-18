@@ -92,17 +92,23 @@ X(BoomerBall, 41) \
 X(HeatseekerDoubles, 43) \
 X(WinterBreakaway, 44) \
 X(Gridiron, 46) \
-X(SuperCube, 47)
+X(SuperCube, 47) \
+X(TacticalRumble, 48) \
+X(SpringLoaded, 49) \
+X(SpeedDemon, 50) \
+X(RumbleBM, 52) \
+X(Knockout, 54) \
+X(Thirdwheel, 55)
 
 #define X(playlist, id) playlist = id,
-enum class Playlist
+enum class PlaylistID
 {
 	PLAYLISTS
 };
 #undef X
 
-#define X(playlist, id) { Playlist::playlist, #playlist },
-static std::map<Playlist, std::string> PlaylistNames
+#define X(playlist, id) { PlaylistID::playlist, #playlist },
+static std::map<PlaylistID, std::string> PlaylistNames
 {
 	PLAYLISTS
 };
@@ -277,8 +283,8 @@ private:
 	void WriteData();
 	void Reset();
 	void GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet);
-	Record GetRecord(UniqueIDWrapper uniqueID, Playlist playlist, Side side);
-	Record GetRecord(std::string uniqueID, Playlist playlist, Side side);
+	Record GetRecord(UniqueIDWrapper uniqueID, PlaylistID playlist, Side side);
+	Record GetRecord(std::string uniqueID, PlaylistID playlist, Side side);
 	void SetRecord();
 	void RenderUI(const std::vector<RenderData>& renderData, const Canvas::CanvasTableOptions& tableOptions, const std::vector<Canvas::CanvasColumnOptions>& columnOptions, const bool renderPlayer);
 	void AddPlayerToRenderData(PriWrapper player);

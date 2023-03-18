@@ -8,6 +8,7 @@
 #include <typeindex>
 #include "canvaswrapper.h"
 #include "mmrwrapper.h"
+#include "items/LoadoutSaveWrapper.h"
 
 #ifdef __cpp_lib_filesystem
 #include <filesystem>
@@ -28,6 +29,13 @@ class SequenceWrapper;
 class ItemsWrapper;
 class ClubDetailsWrapper;
 class UnrealStringWrapper;
+class MatchmakingWrapper;
+class SettingsWrapper;
+class PriWrapper;
+class ModalWrapper;
+class TextInputModalWrapper;
+class MenuStackWrapper;
+class GfxDataTrainingWrapper;
 
 class BAKKESMOD_PLUGIN_IMPORT GameWrapper
 {
@@ -43,6 +51,8 @@ public:
 	bool IsInFreeplay();
 	bool IsInReplay();
 	bool IsInCustomTraining();
+
+	[[deprecated("Doesn't work, use PriWrapper::IsSpectator() instead. (For local player, use GetPlayerController()/*nullcheck*/.GetPRI())")]]
 	bool IsSpectatingInOnlineGame();
 
 	bool IsPaused();
@@ -52,6 +62,7 @@ public:
 	int GetSteamVersion();
 	std::string GetPsyBuildID();
 
+    ServerWrapper                   GetCurrentGameState();
 	ServerWrapper					GetOnlineGame();
 	//TutorialWrapper				GetGameEventAsTutorial();
 	ServerWrapper					GetGameEventAsServer();
@@ -65,6 +76,13 @@ public:
 	GuiManagerWrapper				GetGUIManager();
 	PlayerControllerWrapper			GetPlayerController();
 	ItemsWrapper					GetItemsWrapper();
+	_NODISCARD LoadoutSaveWrapper	GetUserLoadoutSave() const;
+	MatchmakingWrapper				GetMatchmakingWrapper();
+	SettingsWrapper					GetSettings();
+
+	ModalWrapper					CreateModal(const std::string& title);
+	TextInputModalWrapper			CreateTextInputModal(const std::string& title);
+	
 	void							OverrideParams(void* src, size_t memsize);
 
 	void							SetTimeout(std::function<void(GameWrapper*)> theLambda, float time); //time in seconds, subject to change to std::shared_ptr<GameWrapper>
@@ -81,6 +99,7 @@ public:
 	void							UnhookEventPost(std::string eventName);
 
 	void							LogToChatbox(std::string text, std::string sender="BAKKESMOD");
+
 
 	/*
 	Will queue up loading of a texture into memory, only has to be done once, after this it will persistently be stored in memory.
@@ -107,9 +126,18 @@ public:
 	UnrealStringWrapper				GetPlayerName();
 	ClubDetailsWrapper				GetLocalClub();
 	SequenceWrapper					GetMainSequence();
+	_NODISCARD GfxDataTrainingWrapper		GetGfxTrainingData() const;
+	_NODISCARD MenuStackWrapper				GetMenuStack() const;
+	
+	[[deprecated("Experimental feature, use at your own risk. implementation and function signature subject to change")]]
+	void							SetBotLoadout(PriWrapper& bot_pri, const struct BotLoadoutData& loadout_data);
 
     Vector2							GetScreenSize();
+    float							GetDisplayScale();
+    float							GetInterfaceScale();
+	[[deprecated("Renamed to GetDisplayScale to match the name you see in the official interface")]]
     float							GetSafeZoneRatio();
+	[[deprecated("Renamed to GetInterfaceScale to match the name you see in the official interface")]]
     float							GetUIScale();
     unsigned int					GetbMetric();
     UnrealStringWrapper				GetUILanguage();
@@ -122,6 +150,10 @@ public:
 #endif
 	std::wstring					GetBakkesModPathW();
 	std::wstring					GetDataFolderW();
+	int								GetBakkesModVersion();
+
+	void							PlayReplay(const std::wstring& path);
+	void							PlayReplayFromTime(const std::wstring& path, float time);
 
 	template<typename T, typename std::enable_if<std::is_base_of<ObjectWrapper, T>::value>::type* = nullptr>
 	void							HookEventWithCaller(std::string eventName, std::function<void(T caller, void* params, std::string eventName)> callback);

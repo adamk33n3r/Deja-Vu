@@ -11,7 +11,10 @@
 #include "./GameObject/TeamWrapper.h"
 #include "./GameObject/GoalWrapper.h"
 #include "./GameObject/BoostPickupWrapper.h"
+#include "GameObject/BreakOutActorPlatformWrapper.h"
 
+class LoadingProductWrapper;
+class LoadoutSetWrapper;
 class ActorWrapper;
 class CarWrapper;
 class BallWrapper;
@@ -24,6 +27,7 @@ class GoalWrapper;
 class BoostPickupWrapper;
 class SampleHistoryWrapper;
 class StatGraphWrapper;
+class ControllerWrapper;
 class PlayerControllerWrapper;
 
 class SequenceWrapper;
@@ -64,7 +68,7 @@ public:
         return index != other.index;
     }
 
-    T const& operator* () const
+    T operator* () const
     {
         return collection.Get(index);
     }
@@ -106,9 +110,9 @@ template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<WheelWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<RBActorWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<CarComponentWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<GoalWrapper>;
-template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<BoostPickupWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<SampleHistoryWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<StatGraphWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<ControllerWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<PlayerControllerWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<wchar_t>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<SequenceWrapper>;
@@ -118,5 +122,9 @@ template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<ProductWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<OnlineProductWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<ProductAttributeWrapper>;
 template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<int>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<unsigned long long>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<BreakOutActorPlatformWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<LoadoutSetWrapper>;
+template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<LoadingProductWrapper>;
 //template class BAKKESMOD_PLUGIN_IMPORT ArrayWrapper<FSample>;
 #pragma warning(pop)

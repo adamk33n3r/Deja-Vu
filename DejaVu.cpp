@@ -26,7 +26,7 @@ namespace std {
 	string to_string(const Record& record) {
 		return to_string(record.wins) + ":" + to_string(record.losses);
 	}
-	string to_string(const Playlist& playlist) {
+	string to_string(const PlaylistID& playlist) {
 		return to_string(static_cast<int>(playlist));
 	}
 }
@@ -405,12 +405,21 @@ void DejaVu::LoadData()
 	if (!this->data.contains("players")) {
 		Log("Data doesn't contain players");
 		this->data["players"] = json::object();
-		WriteData();
 	}
 
 	Log("Successfully loaded existing data");
 
 	in.close();
+
+	// Fix any nulls that shouldn't be
+	for (auto& player : this->data["players"].items())
+	{
+		if (player.value().count("metCount") && player.value()["metCount"].is_null())
+			player.value()["metCount"] = 1;
+		if (player.value().count("name") && player.value()["name"].is_null())
+			player.value()["name"] = player.key();
+	}
+	WriteData();
 }
 
 
@@ -465,18 +474,7 @@ std::optional<std::string> DejaVu::GetMatchGUID()
 
 ServerWrapper DejaVu::GetCurrentServer()
 {
-	if (this->gameWrapper->IsInReplay())
-		return this->gameWrapper->GetGameEventAsReplay().memory_address;
-	else if (this->gameWrapper->IsInOnlineGame())
-		return this->gameWrapper->GetOnlineGame();
-	else if (this->gameWrapper->IsInFreeplay())
-		return this->gameWrapper->GetGameEventAsServer();
-	else if (this->gameWrapper->IsInCustomTraining())
-		return this->gameWrapper->GetGameEventAsServer();
-	else if (this->gameWrapper->IsSpectatingInOnlineGame())
-		return this->gameWrapper->GetOnlineGame();
-	else
-		return NULL;
+	return this->gameWrapper->GetCurrentGameState();
 }
 
 PriWrapper DejaVu::GetLocalPlayerPRI()
@@ -529,7 +527,6 @@ void DejaVu::HandlePlayerAdded(std::string eventName)
 		PriWrapper localPlayer = GetLocalPlayerPRI();
 		if (!localPlayer.IsNull())
 		{
-
 			bool isTeammate = player.GetTeamNum() == localPlayer.GetTeamNum();
 			std::string myLeaderID = localPlayer.GetPartyLeaderID().str();
 			bool isInMyGroup = myLeaderID != "0" && player.GetPartyLeaderID().str() == myLeaderID;
@@ -660,7 +657,10 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 	int metCount = 0;
 	try
 	{
-		metCount = this->data["players"][uniqueIDStr]["metCount"].get<int>();
+		if (this->data["players"].count(uniqueIDStr) &&
+			this->data["players"][uniqueIDStr].count("metCount") &&
+			!this->data["players"][uniqueIDStr]["metCount"].is_null())
+			metCount = this->data["players"][uniqueIDStr]["metCount"].get<int>();
 	}
 	catch (const std::exception& e)
 	{
@@ -669,8 +669,8 @@ void DejaVu::AddPlayerToRenderData(PriWrapper player)
 		LOG(INFO) << e.what();
 	}
 	bool sameTeam = theirTeamNum == myTeamNum;
-	Record record = GetRecord(uniqueIDStr, static_cast<Playlist>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
-	Record allRecord = GetRecord(uniqueIDStr, Playlist::ANY, sameTeam ? Side::Same : Side::Other);
+	Record record = GetRecord(uniqueIDStr, static_cast<PlaylistID>(server.GetPlaylist().GetPlaylistId()), sameTeam ? Side::Same : Side::Other);
+	Record allRecord = GetRecord(uniqueIDStr, PlaylistID::ANY, sameTeam ? Side::Same : Side::Other);
 	LOG(INFO) << "player team num: " << std::to_string(theirTeamNum);
 	std::string playerName = player.GetPlayerName().ToString();
 	std::string playerNote = this->data["players"][uniqueIDStr].value("note", "");
@@ -787,12 +787,12 @@ void DejaVu::GetAndSetMetMMR(SteamID steamID, int playlist, SteamID idToSet)
 	}, 5);
 }
 
-Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, Playlist playlist, Side side)
+Record DejaVu::GetRecord(UniqueIDWrapper uniqueID, PlaylistID playlist, Side side)
 {
 	return GetRecord(uniqueID.str(), playlist, side);
 }
 
-Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
+Record DejaVu::GetRecord(std::string uniqueID, PlaylistID playlist, Side side)
 {
 	std::string sideStr;
 	if (side == Side::Same)
@@ -807,7 +807,7 @@ Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
 		return { 0, 0 };
 	json data = playerData["playlistData"];
 
-	if (playlist == Playlist::ANY)
+	if (playlist == PlaylistID::ANY)
 	{
 		Record combinedRecord{};
 		for (auto it = data.begin(); it != data.end(); ++it)
@@ -815,7 +815,7 @@ Record DejaVu::GetRecord(std::string uniqueID, Playlist playlist, Side side)
 			if (it.key().empty())
 				continue;
 			auto playlistInt = std::stoi(it.key());
-			auto temp = GetRecord(uniqueID, static_cast<Playlist>(playlistInt), side);
+			auto temp = GetRecord(uniqueID, static_cast<PlaylistID>(playlistInt), side);
 			combinedRecord.wins += temp.wins;
 			combinedRecord.losses += temp.losses;
 		}
@@ -865,7 +865,7 @@ void DejaVu::SetRecord()
 	if (localPRI.IsNull())
 		return;
 
-	Playlist playlist = static_cast<Playlist>(server.GetPlaylist().GetPlaylistId());
+	PlaylistID playlist = static_cast<PlaylistID>(server.GetPlaylist().GetPlaylistId());
 	bool myTeamWon = winningTeam.GetTeamNum() == localPRI.GetTeamNum();
 	Log(myTeamWon ? "YOU WON!" : "YOU LOST!");
 	UniqueIDWrapper myID = localPRI.GetUniqueIdWrapper();

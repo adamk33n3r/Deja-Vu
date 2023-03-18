@@ -111,13 +111,13 @@ void DejaVu::Render()
 
 	static const char* items[]{"Apple", "Banana", "Orange"};
 
-	static Playlist selectedPlaylist = Playlist::ANY;
+	static PlaylistID selectedPlaylist = PlaylistID::ANY;
 
 	//ImGui::ListBox("Fruit", &this->gui_selectedPlaylist, this->playlists, 2);
 	//ImGui::ListBox("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 	//ImGui::Combo("Playlist Filter", &this->gui_selectedPlaylist, this->playlists, IM_ARRAYSIZE(this->playlists));
 
-	const char* preview = (selectedPlaylist != Playlist::ANY) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
+	const char* preview = (selectedPlaylist != PlaylistID::ANY) ? PlaylistNames[selectedPlaylist].c_str() : "Select...";
 
 	if (ImGui::BeginCombo("Playlist Filter", preview))
 	{
@@ -167,17 +167,20 @@ void DejaVu::Render()
 	this->playerIDsToDisplay.resize(this->data["players"].size());
 	for (auto& player : this->data["players"].items())
 	{
-		if (selectedPlaylist != Playlist::ANY && (!player.value()["playlistData"].contains(selectedPlaylistIDStr) || player.value()["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
+		if (selectedPlaylist != PlaylistID::ANY && (!player.value()["playlistData"].contains(selectedPlaylistIDStr) || player.value()["playlistData"][selectedPlaylistIDStr]["records"].is_null()))
 			continue;
-		std::string name;
+		// Default to player id
+		std::string name = player.key();
 		try {
+			if (!player.value().count("name") || player.value()["name"].is_null())
+				player.value()["name"] = player.key();
 			name = player.value()["name"].get<std::string>();
 		}
 		catch (const std::exception& e)
 		{
 			this->gameWrapper->Toast("DejaVu Error", "Check console/log for details");
 			this->cvarManager->log(e.what());
-			LOG(INFO) << e.what();
+			LOG(ERROR) << e.what();
 			continue;
 		}
 		bool nameFound = std::search(name.begin(), name.end(), nameFilterView.begin(), nameFilterView.end(), [](char ch1, char ch2) {
@@ -191,44 +194,60 @@ void DejaVu::Render()
 	ImGuiListClipper clipper((int)this->playerIDsToDisplay.size());
 	while (clipper.Step())
 	{
-		for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-		{
-			std::string uniqueID = this->playerIDsToDisplay[i];
-			auto& playerData = this->data["players"][uniqueID];
-
-			int metCount = playerData["metCount"].get<int>();
-			std::string name = playerData["name"].get<std::string>();
-
-			auto sameRecord = GetRecord(uniqueID, selectedPlaylist, Side::Same);
-			auto otherRecord = GetRecord(uniqueID, selectedPlaylist, Side::Other);
-
-			ImGui::Text(name.c_str()); ImGui::NextColumn();
-			ImGui::Text(std::to_string(metCount).c_str()); ImGui::NextColumn();
-			std::ostringstream sameRecordFormatted;
-			sameRecordFormatted << sameRecord.wins << ":" << sameRecord.losses;
-			ImGui::Text(sameRecordFormatted.str().c_str()); ImGui::NextColumn();
-			std::ostringstream otherRecordFormatted;
-			otherRecordFormatted << otherRecord.wins << ":" << otherRecord.losses;
-			ImGui::Text(otherRecordFormatted.str().c_str()); ImGui::NextColumn();
-
-			float buttonPos = ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x;
-			if (!playerData.contains("note"))
-				playerData["note"] = "";
-			float buttonWidth = 2 * ImGui::GetStyle().FramePadding.x + ImGui::CalcTextSize("Edit").x;
-			ImGui::BeginChild((std::string("#note") + uniqueID).c_str(), ImVec2(ImGui::GetColumnWidth() - buttonWidth - 2 * ImGui::GetStyle().ItemSpacing.x, ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_NoScrollbar);
-			ImGui::TextWrapped(playerData["note"].get<std::string>().c_str());
-			ImGui::EndChild();
-			ImGui::SameLine();
-			ImGui::SetCursorPosX(buttonPos - buttonWidth);
-			if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
+		try {
+			for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
 			{
-				ImGui::OpenPopup("Edit note");
-				this->playersNoteToEdit = uniqueID;
+				std::string uniqueID = this->playerIDsToDisplay[i];
+				auto& playerData = this->data["players"][uniqueID];
+
+				int metCount = 0;
+				if (!playerData.count("metCount") || playerData["metCount"].is_null())
+					playerData["metCount"] = 1;
+				metCount = playerData["metCount"].get<int>();
+				std::string name = uniqueID;
+				if (!playerData.count("name") || playerData["name"].is_null())
+					playerData["name"] = uniqueID;
+				name = playerData["name"].get<std::string>();
+
+				auto sameRecord = GetRecord(uniqueID, selectedPlaylist, Side::Same);
+				auto otherRecord = GetRecord(uniqueID, selectedPlaylist, Side::Other);
+
+				ImGui::Text(name.c_str()); ImGui::NextColumn();
+				ImGui::Text(std::to_string(metCount).c_str()); ImGui::NextColumn();
+				std::ostringstream sameRecordFormatted;
+				sameRecordFormatted << sameRecord.wins << ":" << sameRecord.losses;
+				ImGui::Text(sameRecordFormatted.str().c_str()); ImGui::NextColumn();
+				std::ostringstream otherRecordFormatted;
+				otherRecordFormatted << otherRecord.wins << ":" << otherRecord.losses;
+				ImGui::Text(otherRecordFormatted.str().c_str()); ImGui::NextColumn();
+
+				float buttonPos = ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x;
+				if (!playerData.contains("note"))
+					playerData["note"] = "";
+				float buttonWidth = 2 * ImGui::GetStyle().FramePadding.x + ImGui::CalcTextSize("Edit").x;
+				ImGui::BeginChild((std::string("#note") + uniqueID).c_str(), ImVec2(ImGui::GetColumnWidth() - buttonWidth - 2 * ImGui::GetStyle().ItemSpacing.x, ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_NoScrollbar);
+				ImGui::TextWrapped(playerData["note"].get<std::string>().c_str());
+				ImGui::EndChild();
+				ImGui::SameLine();
+				ImGui::SetCursorPosX(buttonPos - buttonWidth);
+				if (ImGui::Button((std::string("Edit##") + uniqueID).c_str(), ImVec2(0, ImGui::GetFrameHeightWithSpacing())))
+				{
+					ImGui::OpenPopup("Edit note");
+					this->playersNoteToEdit = uniqueID;
+				}
+				ImGui::NextColumn();
+				ImGui::Separator();
 			}
-			ImGui::NextColumn();
-			ImGui::Separator();
+		}
+		catch (const std::exception& e)
+		{
+			this->gameWrapper->Toast("DejaVu Error", "Check console/log for details");
+			this->cvarManager->log(e.what());
+			LOG(ERROR) << e.what();
+			continue;
 		}
 	}
+	clipper.End();
 
 
 	RenderEditNoteModal();
@@ -295,7 +314,10 @@ void DejaVu::RenderEditNoteModal()
 
 			int escIdx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
 			if (ImGui::Button("OK", ImVec2(120, 0)) || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && escIdx >= 0 && ImGui::IsKeyPressed(escIdx)))
+			{
 				ImGui::CloseCurrentPopup();
+				WriteData();
+			}
 		}
 
 		ImGui::EndPopup();

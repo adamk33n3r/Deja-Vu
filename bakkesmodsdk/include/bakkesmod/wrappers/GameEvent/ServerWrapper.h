@@ -3,6 +3,7 @@ template<class T> class ArrayWrapper;
 template<typename T> class StructArrayWrapper;
 #include "../WrapperStructs.h"
 #include ".././GameEvent/TeamGameEventWrapper.h"
+class ControllerWrapper;
 class PlayerControllerWrapper;
 class CarWrapper;
 class ReplayDirectorWrapper;
@@ -55,8 +56,6 @@ public:
 	void SetMaxScore(int newMaxScore);
 	int GetAutoBalanceDifference();
 	void SetAutoBalanceDifference(int newAutoBalanceDifference);
-	int GetLastTrialTime();
-	void SetLastTrialTime(int newLastTrialTime);
 	float GetScoreSlomoTime();
 	void SetScoreSlomoTime(float newScoreSlomoTime);
 	float GetGameTimeRemaining();
@@ -79,8 +78,6 @@ public:
 	void SetbOverTime(unsigned long newbOverTime);
 	unsigned long GetbUnlimitedTime();
 	void SetbUnlimitedTime(unsigned long newbUnlimitedTime);
-	unsigned long GetbKickOnTrialEnd();
-	void SetbKickOnTrialEnd(unsigned long newbKickOnTrialEnd);
 	unsigned long GetbNoContest();
 	void SetbNoContest(unsigned long newbNoContest);
 	unsigned long GetbDisableGoalDelay();
@@ -133,8 +130,6 @@ public:
 	void SetReplicatedServerPerformanceState(unsigned char newReplicatedServerPerformanceState);
 	int GetRoundNum();
 	void SetRoundNum(int newRoundNum);
-	float GetKickIdleReplayOffset();
-	void SetKickIdleReplayOffset(float newKickIdleReplayOffset);
 	float GetAssistMaxTime();
 	void SetAssistMaxTime(float newAssistMaxTime);
 	float GetBallHasBeenHitStartDelay();
@@ -155,6 +150,8 @@ public:
 	void SetPauser(PlayerControllerWrapper newPauser);
 
 	//AUTO-GENERATED FUNCTION PROXIES
+	void SetNumPlayers(int numPlayers);
+	int GetNumPlayers();
 	int GetPlayerCarCount();
 	void ReplicateSkillTiers();
 	void RemoveTeamSelection();
@@ -175,10 +172,6 @@ public:
 	void UpdateTotalGameTimePlayed(float DeltaTime);
 	void UpdateGameTime(float DeltaTime);
 	bool CanUpdateGameTime();
-	void WaitForBallOnGround();
-	bool BallHitGround(Vector& HitNorm);
-	void HandleBallHitGround(BallWrapper Ball, Vector& HitLoc, Vector& HitNorm);
-	void HandleBallHitGroundTimeout();
 	void StartReplay();
 	void HandleReplayFinished(ReplayDirectorWrapper InReplay);
 	void GotoPodiumSpotlight();
@@ -220,6 +213,7 @@ public:
 	BallWrapper SpawnBall2(Vector& SpawnLoc, unsigned long bWake, unsigned long bSpawnCannon, std::string BallArch);
 	int GetTotalScore();
 	void HandleCarSet(PriWrapper InPRI);
+    void RemovePlayer(ControllerWrapper Player);
 	void RemovePRI(PriWrapper PRI);
 	void AddPRI(PriWrapper PRI);
 	void OnMatchWinnerSet();
