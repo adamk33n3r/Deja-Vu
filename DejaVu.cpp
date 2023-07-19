@@ -66,6 +66,8 @@ void DejaVu::CleanUpJson()
 
 void DejaVu::onLoad()
 {
+	isAlreadyAddedToStats = false;
+
 	// At end of match in unranked when people leave and get replaced by bots the event fires and for some reason IsInOnlineGame turns back on
 	// Check 1v1. Player added event didn't fire after joining last
 	// Add debug
@@ -241,7 +243,10 @@ void DejaVu::onLoad()
 	// Fires when the match is first initialized
 	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.OnAllTeamsCreated", std::bind(&DejaVu::HandleGameStart, this, std::placeholders::_1));
 
-	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", std::bind(&DejaVu::HandleGameEnd, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.OnMatchWinnerSet", std::bind(&DejaVu::HandleWinnerSet, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_TA.OnCanVoteForfeitChanged", std::bind(&DejaVu::HandleForfeitChanged, this, std::placeholders::_1));
+	this->gameWrapper->HookEvent("Function TAGame.GameEvent_Soccar_TA.OnGameTimeUpdated", std::bind(&DejaVu::HandleGameTimeUpdate, this, std::placeholders::_1));
+
 	this->gameWrapper->HookEvent("Function TAGame.GFxShell_TA.LeaveMatch", std::bind(&DejaVu::HandleGameLeave, this, std::placeholders::_1));
 	// Function TAGame.GFxHUD_TA.HandlePenaltyChanged
 
@@ -736,16 +741,64 @@ void DejaVu::HandleGameStart(std::string eventName)
 	Reset();
 	this->cvarManager->getCvar("cl_dejavu_debug").setValue(false);
 	this->curMatchGUID = GetMatchGUID();
+	this->isAlreadyAddedToStats = false;
 }
 
-void DejaVu::HandleGameEnd(std::string eventName)
+void DejaVu::HandleWinnerSet(std::string eventName)
 {
 	LOG(INFO) << eventName;
-	SetRecord();
-	WriteData();
-	Reset();
-	this->gameIsOver = true;
+
+	GameOver();
 }
+
+void DejaVu::HandleForfeitChanged(std::string eventName)
+{
+	LOG(INFO) << eventName;
+
+	ServerWrapper server = this->gameWrapper->GetCurrentGameState();
+
+	if (server.IsNull())
+		return;
+
+	if (server.GetbCanVoteToForfeit())
+		return;
+
+	// that means some team forfeited the game
+
+	GameOver();
+}
+
+void DejaVu::HandleGameTimeUpdate(std::string eventName)
+{
+	LOG(INFO) << eventName;
+
+	ServerWrapper server = this->gameWrapper->GetCurrentGameState();
+
+	if (server.IsNull())
+		return;
+
+	int time = server.GetGameTimeRemaining();
+
+	// Overtime is over or 0 goal is scored meaning game is finished
+
+	if (time <= 0) {
+		if (server.IsFinished()) {
+			GameOver();
+		}
+	}
+}
+
+void DejaVu::GameOver()
+{
+	if (!isAlreadyAddedToStats) {
+		SetRecord();
+		WriteData();
+		Reset();
+		this->gameIsOver = true;
+		this->isAlreadyAddedToStats = true;
+	}
+}
+
 
 void DejaVu::HandleGameLeave(std::string eventName)
 {
@@ -753,6 +806,7 @@ void DejaVu::HandleGameLeave(std::string eventName)
 	WriteData();
 	Reset();
 	this->curMatchGUID = std::nullopt;
+	this->isAlreadyAddedToStats = false;
 }
 
 void DejaVu::Reset()
