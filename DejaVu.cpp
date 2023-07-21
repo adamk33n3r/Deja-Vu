@@ -66,7 +66,7 @@ void DejaVu::CleanUpJson()
 
 void DejaVu::onLoad()
 {
-	isAlreadyAddedToStats = false;
+	this->isAlreadyAddedToStats = false;
 
 	// At end of match in unranked when people leave and get replaced by bots the event fires and for some reason IsInOnlineGame turns back on
 	// Check 1v1. Player added event didn't fire after joining last
@@ -777,20 +777,21 @@ void DejaVu::HandleGameTimeUpdate(std::string eventName)
 	if (server.IsNull())
 		return;
 
-	int time = server.GetGameTimeRemaining();
+	if (!server.IsFinished())
+		return;
+
+	float time = server.GetGameTimeRemaining();
 
 	// Overtime is over or 0 goal is scored meaning game is finished
 
 	if (time <= 0) {
-		if (server.IsFinished()) {
-			GameOver();
-		}
+		GameOver();
 	}
 }
 
 void DejaVu::GameOver()
 {
-	if (!isAlreadyAddedToStats) {
+	if (!this->isAlreadyAddedToStats) {
 		SetRecord();
 		WriteData();
 		Reset();
