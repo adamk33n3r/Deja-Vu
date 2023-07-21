@@ -169,7 +169,10 @@ public:
 	void HandlePlayerAdded(std::string eventName);
 	void HandlePlayerRemoved(std::string eventName);
 	void HandleGameStart(std::string eventName);
-	void HandleGameEnd(std::string eventName);
+	void HandleWinnerSet(std::string eventName);
+	void HandleForfeitChanged(std::string eventName);
+	void HandleGameTimeUpdate(std::string eventName);
+	void GameOver();
 	void HandleGameLeave(std::string eventName);
 	void RenderDrawable(CanvasWrapper canvas);
 	void OpenScoreboard(std::string eventName);
@@ -256,6 +259,7 @@ private:
 	json data;
 	MMRWrapper mmrWrapper;
 	bool gameIsOver = false;
+	bool isAlreadyAddedToStats = false;
 	bool isScoreboardOpen = false;
 	std::optional<std::string> curMatchGUID;
 
