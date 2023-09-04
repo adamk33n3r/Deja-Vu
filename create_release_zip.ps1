@@ -63,6 +63,7 @@ try {
         '.\SettingsFileGenerator.cpp',
         '.\LICENSE',
         '.\RuleSet.ruleset',
+        '.\vcpkg.json',
         '.\Version.h'
     )
     foreach ($file in $fileList) {
